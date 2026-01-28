@@ -1,0 +1,27 @@
+# Worker Service Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements-worker.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-worker.txt
+
+# Copy application code
+COPY config/ ./config/
+COPY shared/ ./shared/
+COPY worker/ ./worker/
+
+# Set environment for Python
+ENV PYTHONUNBUFFERED=1
+
+# Run worker
+CMD ["python", "worker/worker.py"]

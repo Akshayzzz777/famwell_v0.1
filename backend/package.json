@@ -1,0 +1,21 @@
+{
+  "name": "document-processor-prisma",
+  "version": "1.0.0",
+  "description": "Database management with Prisma ORM",
+  "scripts": {
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate",
+    "db:reset": "prisma db reset",
+    "db:seed": "node prisma/seed.js",
+    "db:format": "prisma format",
+    "db:validate": "prisma validate"
+  },
+  "devDependencies": {
+    "prisma": "^5.7.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.7.0"
+  }
+}

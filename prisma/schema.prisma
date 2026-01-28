@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users table - stores application users
+model User {
+  user_id    String   @id @default(cuid()) @db.VarChar(36)
+  email      String   @unique @db.VarChar(255)
+  password   String   @db.VarChar(255)
+  created_at DateTime @default(now())
+  is_active  Boolean  @default(true)
+
+  // Relationships
+  files   File[]
+  jobs    Job[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// Files table - stores uploaded files
+model File {
+  file_id          String   @id @default(cuid()) @db.VarChar(36)
+  user_id          String   @db.VarChar(36)
+  filename         String   @db.VarChar(255)
+  file_size_bytes  Int
+  file_hash        String   @unique @db.VarChar(64)
+  gcs_path         String   @db.VarChar(512)
+  scan_status      String   @default("pending") @db.VarChar(50)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  // Foreign keys
+  user   User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  // Relationships
+  jobs Job[]
+
+  @@index([user_id])
+  @@index([file_hash])
+  @@map("files")
+}
+
+// Jobs table - stores processing jobs
+model Job {
+  job_id      String   @id @default(cuid()) @db.VarChar(36)
+  file_id     String   @db.VarChar(36)
+  user_id     String   @db.VarChar(36)
+  status      String   @default("PENDING") @db.VarChar(50) // PENDING, PROCESSING, COMPLETED, FAILED
+  created_at  DateTime @default(now())
+  started_at  DateTime?
+  completed_at DateTime?
+  retry_count Int      @default(0)
+  error_message String?
+  updated_at  DateTime @updatedAt
+
+  // Foreign keys
+  file   File @relation(fields: [file_id], references: [file_id], onDelete: Cascade)
+  user   User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  // Relationships
+  extracted_json ExtractedJSON?
+  llm_result     LLMResult?
+  metrics        ProcessingMetric[]
+
+  @@index([user_id])
+  @@index([file_id])
+  @@index([status])
+  @@map("jobs")
+}
+
+// ExtractedJSON table - stores extracted structured data
+model ExtractedJSON {
+  extraction_id      String   @id @default(cuid()) @db.VarChar(36)
+  job_id             String   @unique @db.VarChar(36)
+  extracted_data     Json
+  validation_status  String   @default("pending") @db.VarChar(50) // pending, valid, invalid
+  validation_errors  String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  // Foreign keys
+  job Job @relation(fields: [job_id], references: [job_id], onDelete: Cascade)
+
+  @@index([job_id])
+  @@map("extracted_json")
+}
+
+// LLMResult table - stores Gemini LLM responses
+model LLMResult {
+  result_id      String   @id @default(cuid()) @db.VarChar(36)
+  job_id         String   @unique @db.VarChar(36)
+  prompt_sent    String   @db.Text
+  llm_response   String   @db.Text
+  structured_output Json?
+  processing_time_seconds Float
+  tokens_used    Int?
+  model_used     String   @default("gemini-2.0-flash") @db.VarChar(100)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Foreign keys
+  job Job @relation(fields: [job_id], references: [job_id], onDelete: Cascade)
+
+  @@index([job_id])
+  @@map("llm_results")
+}
+
+// ProcessingMetric table - stores performance and operational metrics
+model ProcessingMetric {
+  metric_id    String   @id @default(cuid()) @db.VarChar(36)
+  job_id       String?  @db.VarChar(36)
+  metric_type  String   @db.VarChar(100) // pdf_extraction_time, llm_processing_time, api_response_time, etc
+  metric_value Float    // Store numeric values
+  timestamp    DateTime @default(now())
+  metadata     Json?
+
+  // Foreign keys
+  job Job? @relation(fields: [job_id], references: [job_id], onDelete: SetNull)
+
+  @@index([metric_type])
+  @@index([timestamp])
+  @@index([job_id])
+  @@map("processing_metrics")
+}
