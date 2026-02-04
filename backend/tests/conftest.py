@@ -41,6 +41,7 @@ def test_user(test_db):
         user_id=generate_user_id(),
         email="test@example.com",
         is_active=True,
+        role="USER",
     )
     session.add(user)
     session.commit()

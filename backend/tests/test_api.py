@@ -39,3 +39,25 @@ def test_file_size_validation(test_client, test_user):
     """Test file size limit enforcement."""
     # This is a placeholder
     pass
+
+
+# RBAC Tests
+def test_user_role_enum():
+    """Test UserRole enum values."""
+    from api.auth import UserRole
+    
+    assert UserRole.USER.value == "USER"
+    assert UserRole.DOCTOR.value == "DOCTOR"
+
+
+def test_require_role_decorator():
+    """Test that role decorator is properly defined."""
+    from api.auth import require_role, require_user, require_doctor, UserRole
+    
+    # Test that convenience dependencies are defined
+    assert require_user is not None
+    assert require_doctor is not None
+    
+    # Test require_role returns a callable
+    role_checker = require_role(UserRole.USER)
+    assert callable(role_checker)
