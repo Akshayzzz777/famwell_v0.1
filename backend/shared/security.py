@@ -25,14 +25,24 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_jwt_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
-    """Create JWT token for user."""
+def create_jwt_token(user_id: str, role: str = "USER", expires_delta: Optional[timedelta] = None) -> str:
+    """Create JWT token for user.
+
+    Args:
+        user_id: The user's unique identifier
+        role: The user's role (USER or DOCTOR)
+        expires_delta: Optional custom expiration time
+
+    Returns:
+        Encoded JWT token string
+    """
     if expires_delta is None:
         expires_delta = timedelta(hours=settings.jwt_expiration_hours)
 
     expire = datetime.utcnow() + expires_delta
     payload = {
         "sub": user_id,
+        "role": role,
         "exp": expire,
         "iat": datetime.utcnow(),
     }
@@ -124,6 +134,31 @@ def sanitize_filename(filename: str) -> str:
             filename = filename[:255]
 
     return filename
+
+
+def validate_filename(filename: str) -> bool:
+    """Validate filename format.
+    
+    Args:
+        filename: The filename to validate.
+        
+    Returns:
+        True if valid, False otherwise.
+    """
+    if not filename:
+        return False
+        
+    # Check extension
+    if not filename.lower().endswith(".pdf"):
+        return False
+        
+    # Check for invalid characters
+    # Windows forbidden characters: < > : " / \ | ? *
+    invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+    if any(c in filename for c in invalid_chars):
+        return False
+        
+    return True
 
 
 def validate_pdf_magic_bytes(file_content: bytes) -> bool:
