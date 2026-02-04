@@ -1,10 +1,11 @@
 """Authentication and authorization utilities for FastAPI using Prisma."""
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
+from enum import Enum
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from shared.security import decode_jwt_token
 from shared.database import get_prisma_client
@@ -15,7 +16,13 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 
-async def verify_jwt_token(credentials: HTTPAuthCredentials = Depends(security)) -> str:
+class UserRole(str, Enum):
+    """User role enumeration for RBAC."""
+    USER = "USER"
+    DOCTOR = "DOCTOR"
+
+
+async def verify_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """Verify JWT token and return user ID.
 
     Args:
@@ -79,11 +86,12 @@ async def get_current_user(user_id: str = Depends(verify_jwt_token)) -> Dict[str
                 detail="User account is inactive",
             )
 
-        # Return user as dictionary
+        # Return user as dictionary with role
         return {
             "user_id": user.user_id,
             "email": user.email,
             "is_active": user.is_active,
+            "role": user.role,
             "created_at": user.created_at,
         }
 
@@ -95,3 +103,38 @@ async def get_current_user(user_id: str = Depends(verify_jwt_token)) -> Dict[str
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error fetching user information",
         )
+
+
+def require_role(*allowed_roles: UserRole):
+    """Create a dependency that requires specific user roles.
+
+    Args:
+        *allowed_roles: One or more UserRole values that are permitted
+
+    Returns:
+        Dependency function that validates user role
+
+    Example:
+        @router.get("/doctor-only")
+        async def doctor_endpoint(user: dict = Depends(require_role(UserRole.DOCTOR))):
+            ...
+    """
+    async def role_checker(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+        user_role = current_user.get("role", "USER")
+        allowed_values = [role.value for role in allowed_roles]
+
+        if user_role not in allowed_values:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role(s): {', '.join(allowed_values)}",
+            )
+
+        return current_user
+
+    return role_checker
+
+
+# Convenience dependencies for common role checks
+require_user = require_role(UserRole.USER, UserRole.DOCTOR)
+require_doctor = require_role(UserRole.DOCTOR)
+

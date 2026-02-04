@@ -3,7 +3,14 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from pydantic import BaseModel, Field, validator
+from enum import Enum
 import re
+
+
+class UserRole(str, Enum):
+    """User role enumeration for RBAC."""
+    USER = "USER"
+    DOCTOR = "DOCTOR"
 
 
 class UserBase(BaseModel):
@@ -13,7 +20,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """User creation schema."""
-    pass
+    password: str = Field(..., min_length=8)
+    role: UserRole = UserRole.USER
 
 
 class UserResponse(UserBase):
@@ -21,6 +29,7 @@ class UserResponse(UserBase):
     user_id: str
     created_at: datetime
     is_active: bool
+    role: str
 
     class Config:
         from_attributes = True
