@@ -17,6 +17,7 @@ model User {
   password   String   @db.VarChar(255)
   created_at DateTime @default(now())
   is_active  Boolean  @default(true)
+  role       String   @default("USER") @db.VarChar(20)  // USER, DOCTOR
 
   // Relationships
   files   File[]
