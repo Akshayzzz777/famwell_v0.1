@@ -64,7 +64,7 @@ def create_app() -> FastAPI:
         Configured FastAPI application
     """
     app = FastAPI(
-        title="Document Processing Pipeline",
+        title="FamWell Backend",
         description="Production-ready backend for AI document processing",
         version="1.0.0",
         openapi_url="/api/docs/openapi.json" if settings.api_env == "development" else None,
@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
     async def root():
         """Root endpoint."""
         return {
-            "service": "Document Processing Pipeline",
+            "service": "FamWell Backend",
             "version": "1.0.0",
             "status": "running",
             "docs": "/api/docs" if settings.api_env == "development" else "Not available",
