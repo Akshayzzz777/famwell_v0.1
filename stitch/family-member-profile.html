@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FamWell - Family Member Profile</title>
+<!-- Tailwind CSS v3 CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Custom Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              light: '#f0f9ff',
+              primary: '#0ea5e9',
+              dark: '#0369a1',
+              soft: '#e0f2fe'
+            },
+            accent: {
+              teal: '#14b8a6',
+              rose: '#f43f5e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-typography">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-brand-light min-h-screen pb-24">
+<!-- BEGIN: Header -->
+<header class="bg-white px-4 pt-6 pb-4 shadow-sm sticky top-0 z-10" data-purpose="screen-header">
+<div class="flex items-center justify-between max-w-md mx-auto">
+<button aria-label="Go back" class="p-2 -ml-2 text-brand-dark">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M15.75 19.5L8.25 12l7.5-7.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<h1 class="text-lg font-semibold text-slate-800">Family Profile</h1>
+<button aria-label="Edit profile" class="p-2 -mr-2 text-brand-dark">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</header>
+<!-- END: Header -->
+<main class="max-w-md mx-auto px-4 mt-6 space-y-6">
+<!-- BEGIN: Member Overview -->
+<section class="flex flex-col items-center text-center" data-purpose="member-info-card">
+<div class="relative mb-4">
+<div class="w-32 h-32 rounded-full border-4 border-white shadow-md overflow-hidden bg-brand-soft">
+<!-- Placeholder for profile photo -->
+<img alt="Profile Photo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVT2ysMXQUwPj-4fDqET-xSCZrUNvWTkUDEqefA-wnoUAvz5w2CfgAw6AanWJp1wG-blx45moasaTKEb-j2aACjY8S5tfY-4ETUMa9OVWxCupTyJsEtm38Z5coeVlNR2Hees_DkRG5I7CKEV6VyYbuefm7eu-LYCDGERtZgRFUiS6k8VSpHnv2NIx9qsW1_Z_F801fhtGkRCdryQ6_07DrRO_NDRiVoW3KvBbuDDM-z-TSieNRHjgjZczhLLCKmZCb2CsETq27YxqD"/>
+</div>
+<div class="absolute bottom-1 right-1 bg-green-500 w-5 h-5 border-2 border-white rounded-full"></div>
+</div>
+<div class="space-y-1">
+<h2 class="text-2xl font-bold text-slate-900">Sarah Jenkins</h2>
+<p class="text-brand-dark font-medium">Age: 34 Years</p>
+</div>
+</section>
+<!-- END: Member Overview -->
+<!-- BEGIN: Health Notes -->
+<section class="bg-white rounded-2xl p-5 shadow-sm border border-brand-soft" data-purpose="health-notes-section">
+<div class="flex items-center gap-2 mb-3">
+<svg class="h-5 w-5 text-accent-teal" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<h3 class="font-semibold text-slate-800">Health Notes</h3>
+</div>
+<p class="text-slate-600 text-sm leading-relaxed">
+        Allergic to Penicillin. Management for mild asthma. Routine check-up scheduled for next month. Loves yoga and walking.
+      </p>
+</section>
+<!-- END: Health Notes -->
+<!-- BEGIN: Action Buttons -->
+<section class="grid grid-cols-1 gap-3" data-purpose="quick-actions">
+<!-- Medical History -->
+<button class="flex items-center justify-between w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm active:scale-95 transition-transform">
+<div class="flex items-center gap-4">
+<div class="bg-brand-soft p-2.5 rounded-lg text-brand-primary">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="font-semibold text-slate-700">Medical History</span>
+</div>
+<svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Prescriptions -->
+<button class="flex items-center justify-between w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm active:scale-95 transition-transform">
+<div class="flex items-center gap-4">
+<div class="bg-brand-soft p-2.5 rounded-lg text-brand-primary">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.628.285a2 2 0 01-1.963 0l-.628-.285a6 6 0 00-3.86-.517l-2.387.477a2 2 0 00-1.022.547V18a2 2 0 002 2h11a2 2 0 002-2v-2.572zM12 11V3.5l3-3 3 3V11a6 6 0 01-6 6z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="font-semibold text-slate-700">Prescriptions</span>
+</div>
+<svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Doctor Contacts -->
+<button class="flex items-center justify-between w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm active:scale-95 transition-transform">
+<div class="flex items-center gap-4">
+<div class="bg-brand-soft p-2.5 rounded-lg text-brand-primary">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="font-semibold text-slate-700">Doctor Contacts</span>
+</div>
+<svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</section>
+<!-- END: Action Buttons -->
+</main>
+<!-- BEGIN: Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 pb-8 z-20" data-purpose="bottom-navigation">
+<div class="max-w-md mx-auto flex justify-between items-center">
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-brand-primary transition-colors" href="#">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] font-medium">Home</span>
+</a>
+<a aria-current="page" class="flex flex-col items-center gap-1 text-brand-primary" href="#">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] font-medium">Family</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-brand-primary transition-colors" href="#">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] font-medium">Schedule</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-brand-primary transition-colors" href="#">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-[10px] font-medium">Settings</span>
+</a>
+</div>
+</nav>
+<!-- END: Bottom Navigation -->
+</body></html>

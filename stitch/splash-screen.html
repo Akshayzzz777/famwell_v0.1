@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FamWell Splash Screen</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- BEGIN: Custom Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'famwell-blue': '#E0F2FE',
+            'famwell-text': '#1E293B'
+          },
+          animation: {
+            'fade-in': 'fadeIn 1.5s ease-out forwards',
+            'float': 'float 3s ease-in-out infinite'
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' }
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+<!-- END: Custom Configuration -->
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="background-gradient">
+    /* High-quality smooth gradient background */
+    .bg-soft-gradient {
+      background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+      height: 100vh;
+      width: 100vw;
+    }
+  </style>
+<style data-purpose="animations">
+    /* Helper for standard fade-in delay */
+    .delay-500 {
+      animation-delay: 500ms;
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="antialiased overflow-hidden">
+<!-- BEGIN: Splash Container -->
+<main class="bg-soft-gradient flex flex-col items-center justify-center px-6" data-purpose="splash-container">
+<!-- BEGIN: App Logo Section -->
+<div class="flex flex-col items-center animate-fade-in" data-purpose="branding-content">
+<!-- Logo Graphic: Abstract Heart/Family Icon -->
+<div class="mb-6 animate-float" data-purpose="logo-icon">
+<div class="w-24 h-24 bg-white rounded-3xl shadow-lg flex items-center justify-center">
+<!-- Simplified Heart/Cross Shape -->
+<svg class="w-14 h-14 text-blue-500" fill="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
+</svg>
+</div>
+</div>
+<!-- App Name -->
+<h1 class="text-4xl font-bold tracking-tight text-slate-800 mb-2" data-purpose="app-title">
+        FamWell
+      </h1>
+<!-- Tagline -->
+<p class="text-slate-500 text-lg font-medium opacity-0 animate-fade-in delay-500" data-purpose="app-tagline">
+        Care when it matters most
+      </p>
+</div>
+<!-- END: App Logo Section -->
+<!-- BEGIN: Loading Indicator -->
+<div class="absolute bottom-12 flex flex-col items-center" data-purpose="status-indicator">
+<div class="flex space-x-2">
+<div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+<div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+<div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+</div>
+</div>
+<!-- END: Loading Indicator -->
+</main>
+<!-- END: Splash Container -->
+</body></html>

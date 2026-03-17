@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FamWell Onboarding</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<style data-purpose="typography">
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+<style data-purpose="animations">
+    .step-content {
+      display: none;
+    }
+    .step-content.active {
+      display: flex;
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .dot.active {
+      width: 1.5rem;
+      background-color: #3b82f6; /* Tailwind blue-500 */
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 h-screen overflow-hidden">
+<!-- BEGIN: Onboarding Container -->
+<main class="relative h-full flex flex-col max-w-md mx-auto bg-white shadow-xl" data-purpose="onboarding-flow">
+<!-- Top Progress Indicators -->
+<header class="pt-12 px-8 flex justify-between items-center" data-purpose="header-navigation">
+<div class="flex gap-2">
+<div class="dot h-2 w-2 rounded-full bg-slate-200 transition-all duration-300 active" id="dot-1"></div>
+<div class="dot h-2 w-2 rounded-full bg-slate-200 transition-all duration-300" id="dot-2"></div>
+<div class="dot h-2 w-2 rounded-full bg-slate-200 transition-all duration-300" id="dot-3"></div>
+</div>
+<button class="text-slate-400 text-sm font-medium hover:text-slate-600" onclick="completeOnboarding()">Skip</button>
+</header>
+<!-- BEGIN: Step 1 - Family Health Tracking -->
+<section class="step-content active flex-col items-center justify-center px-8 flex-grow" data-purpose="step-health-tracking" id="step-1">
+<div class="w-full bg-blue-50 rounded-3xl p-10 mb-10 flex items-center justify-center aspect-square shadow-sm">
+<!-- SVG Icon for Health Tracking -->
+<svg class="w-32 h-32 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 12h3.75M9 15h3.375m1.875-12h-9.75a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 004.5 21h10.5a2.25 2.25 0 002.25-2.25V6.75L14.25 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M14.25 3v3.75c0 .414.336.75.75.75H18.75" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M21 12c0 1.657-3.134 3-7 3s-7-1.343-7-3 3.134-3 7-3 7 1.343 7 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="text-center">
+<h1 class="text-3xl font-bold text-slate-800 mb-4">Track Family Health</h1>
+<p class="text-slate-500 leading-relaxed">Keep all your family's vital health stats and medical history in one secure digital vault.</p>
+</div>
+</section>
+<!-- END: Step 1 -->
+<!-- BEGIN: Step 2 - Emergency Contacts -->
+<section class="step-content flex-col items-center justify-center px-8 flex-grow" data-purpose="step-emergency-contacts" id="step-2">
+<div class="w-full bg-green-50 rounded-3xl p-10 mb-10 flex items-center justify-center aspect-square shadow-sm">
+<!-- SVG Icon for Emergency Contacts -->
+<svg class="w-32 h-32 text-green-500" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M12 9v3m0 0v3m0-3h3m-3 0H9" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="text-center">
+<h1 class="text-3xl font-bold text-slate-800 mb-4">Emergency Support</h1>
+<p class="text-slate-500 leading-relaxed">Instant access to critical contacts and emergency protocols when every second counts.</p>
+</div>
+</section>
+<!-- END: Step 2 -->
+<!-- BEGIN: Step 3 - Medication Reminders -->
+<section class="step-content flex-col items-center justify-center px-8 flex-grow" data-purpose="step-medication-reminders" id="step-3">
+<div class="w-full bg-blue-50 rounded-3xl p-10 mb-10 flex items-center justify-center aspect-square shadow-sm">
+<!-- SVG Icon for Medication Reminders -->
+<svg class="w-32 h-32 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M9.75 3.104v1.244c0 .892-.722 1.615-1.615 1.615H7.115c-.892 0-1.615-.723-1.615-1.615V3.104m12.75 0v1.244c0 .892-.722 1.615-1.615 1.615h-1.019c-.892 0-1.615-.723-1.615-1.615V3.104m-12 6.352a3 3 0 00-3 3v4.5a3 3 0 003 3h15a3 3 0 003-3v-4.5a3 3 0 00-3-3H5.25z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M9 12.75h.008v.008H9v-.008zm3 0h.008v.008H12v-.008zm3 0h.008v.008H15v-.008z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="text-center">
+<h1 class="text-3xl font-bold text-slate-800 mb-4">Never Miss a Dose</h1>
+<p class="text-slate-500 leading-relaxed">Smart reminders and dosage tracking for the whole family, tailored to each individual's schedule.</p>
+</div>
+</section>
+<!-- END: Step 3 -->
+<!-- Bottom Action Area -->
+<footer class="p-8 pb-12" data-purpose="onboarding-controls">
+<button class="w-full bg-blue-600 text-white py-5 rounded-2xl font-semibold text-lg shadow-lg shadow-blue-200 active:scale-[0.98] transition-all" id="next-btn" onclick="nextStep()">
+        Continue
+      </button>
+<button class="hidden w-full bg-slate-900 text-white py-5 rounded-2xl font-semibold text-lg shadow-lg active:scale-[0.98] transition-all" id="get-started-btn" onclick="completeOnboarding()">
+        Get Started
+      </button>
+</footer>
+</main>
+<!-- END: Onboarding Container -->
+<script data-purpose="onboarding-logic">
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    function nextStep() {
+      if (currentStep < totalSteps) {
+        document.getElementById(`step-${currentStep}`).classList.remove('active');
+        document.getElementById(`dot-${currentStep}`).classList.remove('active');
+        
+        currentStep++;
+        
+        document.getElementById(`step-${currentStep}`).classList.add('active');
+        document.getElementById(`dot-${currentStep}`).classList.add('active');
+        
+        updateButtons();
+      }
+    }
+
+    function updateButtons() {
+      const nextBtn = document.getElementById('next-btn');
+      const getStartedBtn = document.getElementById('get-started-btn');
+      
+      if (currentStep === totalSteps) {
+        nextBtn.classList.add('hidden');
+        getStartedBtn.classList.remove('hidden');
+      }
+    }
+
+    function completeOnboarding() {
+      // Logic for moving to the main app dashboard
+      alert('Welcome to FamWell! Onboarding complete.');
+    }
+  </script>
+</body></html>

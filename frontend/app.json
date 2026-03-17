@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "FamWell",
+    "slug": "famwell-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "buildNumber": "1"
+    },
+    "android": {
+      "permissions": [
+        "android.permission.INTERNET"
+      ],
+      "versionCode": 1,
+      "package": "com.famwell"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "document-processor-mobile"
+      }
+    },
+    "scheme": "famwell-mobile"
+  }
+}
