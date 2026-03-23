@@ -203,3 +203,78 @@ class ExtractedJSONValidator(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UiRoleSelection(str, Enum):
+    """Frontend role selection values."""
+    PATIENT = "PATIENT"
+    DOCTOR = "DOCTOR"
+
+
+class LoginRequest(BaseModel):
+    """Authentication request schema."""
+    email: str = Field(..., min_length=5, max_length=255)
+    password: str = Field(..., min_length=8)
+    selected_role: UiRoleSelection
+
+    @validator("email")
+    def normalize_login_email(cls, value):
+        normalized = value.strip().lower()
+        if "@" not in normalized:
+            raise ValueError("Email address is invalid")
+        return normalized
+
+
+class RegisterRequest(BaseModel):
+    """Registration request schema."""
+    full_name: str = Field(..., min_length=1, max_length=255)
+    email: str = Field(..., min_length=5, max_length=255)
+    phone_number: str = Field(..., min_length=7, max_length=32)
+    password: str = Field(..., min_length=8)
+    selected_role: UiRoleSelection = UiRoleSelection.PATIENT
+
+    @validator("full_name")
+    def validate_full_name(cls, value):
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Full name is required")
+        return normalized
+
+    @validator("email")
+    def normalize_register_email(cls, value):
+        normalized = value.strip().lower()
+        if "@" not in normalized:
+            raise ValueError("Email address is invalid")
+        return normalized
+
+    @validator("phone_number")
+    def validate_phone_number(cls, value):
+        normalized = value.strip()
+        if len(normalized) < 7:
+            raise ValueError("Phone number is invalid")
+        return normalized
+
+
+class RecordCreateRequest(BaseModel):
+    """Record creation schema."""
+    record_type: str = Field(..., min_length=1, max_length=100)
+    data: Dict[str, Any]
+    user_id: Optional[str] = None
+
+    @validator("record_type")
+    def validate_record_type(cls, value):
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Record type is required")
+        return normalized
+
+
+class FollowRequest(BaseModel):
+    """Follow by Health ID request schema."""
+    health_id: str = Field(..., min_length=5, max_length=32)
+
+    @validator("health_id")
+    def validate_health_id(cls, value):
+        normalized = value.strip().upper()
+        if not re.match(r"^[A-Z]{2}-[A-Z0-9]{4,28}$", normalized):
+            raise ValueError("Health ID format is invalid")
+        return normalized

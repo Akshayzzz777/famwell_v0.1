@@ -5,6 +5,7 @@ import { AppLogo } from '../components/AppLogo';
 import { Card } from '../components/Card';
 import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { useRole } from '../context/RoleContext';
 import type { SignInScreenProps } from '../navigation/types';
 import { theme } from '../styles/theme';
 
@@ -17,6 +18,22 @@ export function SignInScreen({ navigation, onAuthenticated }: Props) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const { register, sessionBusy, sessionError } = useRole();
+
+  const canContinue = Boolean(name.trim() && email.trim() && phone.trim() && password.trim());
+
+  const handleRegister = async () => {
+    const created = await register({
+      fullName: name,
+      email,
+      phoneNumber: phone,
+      password,
+    });
+
+    if (created) {
+      onAuthenticated();
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.screen}>
@@ -51,7 +68,8 @@ export function SignInScreen({ navigation, onAuthenticated }: Props) {
             value={password}
           />
 
-          <PrimaryButton label="Create account" onPress={onAuthenticated} />
+          {sessionError ? <Text style={styles.inlineNotice}>{sessionError}</Text> : null}
+          <PrimaryButton disabled={!canContinue} label="Create account" loading={sessionBusy} onPress={handleRegister} />
         </View>
 
         <View style={styles.footer}>
@@ -97,6 +115,10 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: theme.spacing[4],
+  },
+  inlineNotice: {
+    ...theme.typography.label,
+    color: theme.colors.accent.rose,
   },
   footer: {
     flexDirection: 'row',

@@ -6,14 +6,13 @@ import { Card } from '../components/Card';
 import { Header } from '../components/Header';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useJobResult } from '../hooks/useJobResult';
-import { placeholderResult } from '../data/mockData';
 import { mainNavItems } from '../navigation/mainNavItems';
 import type { ResultScreenProps } from '../navigation/types';
 import { theme } from '../styles/theme';
 
 function buildResultPreview(result: any) {
   if (!result) {
-    return placeholderResult.extractedPreview;
+    return [] as string[];
   }
 
   const preview: string[] = [];
@@ -30,10 +29,6 @@ function buildResultPreview(result: any) {
     preview.push(`Status: ${result.status}`);
   }
 
-  if (preview.length === 0) {
-    preview.push('Live result received. Structured fields were empty.');
-  }
-
   return preview;
 }
 
@@ -47,39 +42,52 @@ export function ResultScreen({ navigation, route }: ResultScreenProps) {
     }
 
     getResult(jobId).catch(() => {
-      // Error state is rendered below.
+      return null;
     });
   }, [getResult, jobId]);
 
   const previewLines = buildResultPreview(result);
-  const summaryText = result?.llm_result?.response ?? placeholderResult.summary;
+  const summaryText = result?.llm_result?.response ?? null;
 
   return (
     <View style={styles.screen}>
-      <Header
-        backLabel="<"
-        onBack={navigation.goBack}
-        subtitle={jobId ?? 'Placeholder result'}
-        title="Results"
-      />
+      <Header backLabel="<" onBack={navigation.goBack} subtitle={jobId ?? 'No job selected'} title="Results" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.heroCard}>
-          <Text style={styles.heroLabel}>{jobId ? 'Result API' : 'Placeholder'}</Text>
-          <Text style={styles.heroTitle}>{result ? 'Live result ready' : placeholderResult.title}</Text>
-          <Text style={styles.heroText}>{summaryText}</Text>
-        </Card>
+        {!jobId ? (
+          <Card>
+            <Text style={styles.sectionLabel}>Empty state</Text>
+            <Text style={styles.helperText}>No job ID was provided to the result screen.</Text>
+          </Card>
+        ) : null}
 
-        <Card>
-          <Text style={styles.sectionLabel}>Preview</Text>
-          <View style={styles.previewList}>
-            {previewLines.map((line) => (
-              <Text key={line} style={styles.previewLine}>
-                {line}
-              </Text>
-            ))}
-          </View>
-        </Card>
+        {jobId ? (
+          <Card style={styles.heroCard}>
+            <Text style={styles.heroLabel}>Result endpoint</Text>
+            <Text style={styles.heroTitle}>{result ? 'Live result ready' : 'Waiting for result'}</Text>
+            <Text style={styles.heroText}>{summaryText ?? 'No result payload has been returned yet.'}</Text>
+          </Card>
+        ) : null}
+
+        {result && previewLines.length > 0 ? (
+          <Card>
+            <Text style={styles.sectionLabel}>Preview</Text>
+            <View style={styles.previewList}>
+              {previewLines.map((line) => (
+                <Text key={line} style={styles.previewLine}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          </Card>
+        ) : null}
+
+        {jobId && !loading && !error && !result ? (
+          <Card>
+            <Text style={styles.sectionLabel}>Empty state</Text>
+            <Text style={styles.helperText}>The result endpoint returned no body for this job.</Text>
+          </Card>
+        ) : null}
 
         {result ? (
           <Card>
@@ -91,7 +99,22 @@ export function ResultScreen({ navigation, route }: ResultScreenProps) {
         {error ? (
           <Card style={styles.errorCard}>
             <Text style={styles.errorLabel}>Result error</Text>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>{error.message}</Text>
+            {error.retryable ? (
+              <View style={styles.retryWrap}>
+                <PrimaryButton
+                  label="Retry"
+                  onPress={() => {
+                    if (jobId) {
+                      getResult(jobId).catch(() => {
+                        return null;
+                      });
+                    }
+                  }}
+                  variant="secondary"
+                />
+              </View>
+            ) : null}
           </Card>
         ) : null}
 
@@ -102,18 +125,14 @@ export function ResultScreen({ navigation, route }: ResultScreenProps) {
           onPress={() => {
             if (jobId) {
               getResult(jobId).catch(() => {
-                // Error state is rendered below.
+                return null;
               });
             }
           }}
         />
       </ScrollView>
 
-      <BottomNav
-        activeRoute="ResultScreen"
-        items={mainNavItems}
-        onNavigate={(target) => navigation.navigate(target)}
-      />
+      <BottomNav activeRoute="ResultScreen" items={mainNavItems} onNavigate={(target) => navigation.navigate(target)} />
     </View>
   );
 }
@@ -151,6 +170,11 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.neutrals.textMuted,
   },
+  helperText: {
+    ...theme.typography.body,
+    color: theme.colors.neutrals.textMuted,
+    marginTop: theme.spacing[3],
+  },
   previewList: {
     marginTop: theme.spacing[3],
     gap: theme.spacing[3],
@@ -176,5 +200,8 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.neutrals.textBody,
     marginTop: theme.spacing[2],
+  },
+  retryWrap: {
+    marginTop: theme.spacing[4],
   },
 });

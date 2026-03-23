@@ -4,50 +4,89 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { BottomNav } from '../components/BottomNav';
 import { Card } from '../components/Card';
 import { Header } from '../components/Header';
+import { PrimaryButton } from '../components/PrimaryButton';
 import { ProfileCard } from '../components/ProfileCard';
-import { familyProfile } from '../data/mockData';
+import { useRole } from '../context/RoleContext';
+import { useInsights } from '../hooks/useInsights';
+import { useRecords } from '../hooks/useRecords';
 import { mainNavItems } from '../navigation/mainNavItems';
 import type { FamilyProfileProps } from '../navigation/types';
 import { theme } from '../styles/theme';
 
 export function FamilyProfileScreen({ navigation }: FamilyProfileProps) {
+  const { currentUser, selectedRole } = useRole();
+  const { insights, loading: insightsLoading, error: insightsError, refresh: refreshInsights } = useInsights();
+  const { records, loading: recordsLoading, error: recordsError, refresh: refreshRecords } = useRecords();
+  const visibleRecords = records.slice(0, 3);
+
   return (
     <View style={styles.screen}>
-      <Header backLabel="<" onBack={navigation.goBack} rightLabel="Edit" title="Family Profile" />
+      <Header backLabel="<" onBack={navigation.goBack} rightLabel={currentUser?.healthId ?? 'Patient'} title="Family Profile" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <ProfileCard
-          fallbackLabel="SJ"
-          imageUri={familyProfile.imageUri}
-          name={familyProfile.name}
-          subtitle={familyProfile.subtitle}
+          fallbackLabel={(currentUser?.fullName || currentUser?.email || '--').slice(0, 2).toUpperCase()}
+          name={currentUser?.fullName || 'Patient Profile'}
+          subtitle={currentUser?.email || 'Authenticated patient account'}
         />
 
         <Card>
-          <Text style={styles.sectionTitle}>Health Notes</Text>
-          <Text style={styles.notes}>{familyProfile.notes}</Text>
+          <Text style={styles.sectionTitle}>Insights</Text>
+          <Text style={styles.notes}>
+            {selectedRole !== 'PATIENT'
+              ? 'Switch to Patient to view this screen.'
+              : insightsLoading
+                ? 'Loading insights...'
+                : insights?.message || 'No insights returned.'}
+          </Text>
+          {insightsError ? (
+            <View style={styles.retryWrap}>
+              <Text style={styles.errorText}>{insightsError.message}</Text>
+              {insightsError.retryable ? <PrimaryButton label="Retry" onPress={refreshInsights} variant="secondary" /> : null}
+            </View>
+          ) : null}
         </Card>
 
-        <View style={styles.actions}>
-          {familyProfile.actions.map((action) => (
-            <TouchableOpacity key={action} activeOpacity={0.9}>
-              <Card style={styles.actionCard}>
-                <View style={styles.actionBadge}>
-                  <Text style={styles.actionBadgeText}>{action.slice(0, 2).toUpperCase()}</Text>
-                </View>
-                <Text style={styles.actionText}>{action}</Text>
-                <Text style={styles.chevron}>{'>'}</Text>
-              </Card>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {selectedRole === 'PATIENT' ? (
+          <View style={styles.actions}>
+            {visibleRecords.map((record) => (
+              <TouchableOpacity key={record.record_id} activeOpacity={1}>
+                <Card style={styles.actionCard}>
+                  <View style={styles.actionBadge}>
+                    <Text style={styles.actionBadgeText}>{record.record_type.slice(0, 2).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.actionCopy}>
+                    <Text style={styles.actionText}>{record.record_type}</Text>
+                    <Text style={styles.actionMeta}>{new Date(record.updated_at).toLocaleDateString()}</Text>
+                  </View>
+                  <Text style={styles.chevron}>{'>'}</Text>
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
+        {selectedRole === 'PATIENT' && !recordsLoading && records.length === 0 ? (
+          <Card>
+            <Text style={styles.sectionTitle}>Records</Text>
+            <Text style={styles.notes}>No records are available for this account yet.</Text>
+          </Card>
+        ) : null}
+
+        {recordsError ? (
+          <Card>
+            <Text style={styles.sectionTitle}>Records Error</Text>
+            <Text style={styles.errorText}>{recordsError.message}</Text>
+            {recordsError.retryable ? (
+              <View style={styles.retryWrap}>
+                <PrimaryButton label="Retry" onPress={refreshRecords} variant="secondary" />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
       </ScrollView>
 
-      <BottomNav
-        activeRoute="FamilyProfileScreen"
-        items={mainNavItems}
-        onNavigate={(route) => navigation.navigate(route)}
-      />
+      <BottomNav activeRoute="FamilyProfileScreen" items={mainNavItems} onNavigate={(route) => navigation.navigate(route)} />
     </View>
   );
 }
@@ -92,13 +131,28 @@ const styles = StyleSheet.create({
     ...theme.typography.label,
     color: theme.colors.brand.sky500,
   },
+  actionCopy: {
+    flex: 1,
+  },
   actionText: {
     ...theme.typography.bodyStrong,
     color: theme.colors.neutrals.textBody,
-    flex: 1,
+  },
+  actionMeta: {
+    ...theme.typography.label,
+    color: theme.colors.neutrals.textMuted,
+    marginTop: theme.spacing[1],
   },
   chevron: {
     ...theme.typography.bodyStrong,
     color: theme.colors.neutrals.textSubtle,
+  },
+  errorText: {
+    ...theme.typography.body,
+    color: theme.colors.accent.rose,
+  },
+  retryWrap: {
+    marginTop: theme.spacing[4],
+    gap: theme.spacing[3],
   },
 });

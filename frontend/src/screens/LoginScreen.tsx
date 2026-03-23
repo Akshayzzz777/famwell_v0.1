@@ -5,6 +5,7 @@ import { AppLogo } from '../components/AppLogo';
 import { Card } from '../components/Card';
 import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { useRole } from '../context/RoleContext';
 import type { LoginScreenProps } from '../navigation/types';
 import { theme } from '../styles/theme';
 
@@ -15,6 +16,16 @@ type Props = LoginScreenProps & {
 export function LoginScreen({ navigation, onAuthenticated }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { clearSessionError, login, selectedRole, sessionBusy, sessionError, setSelectedRole } = useRole();
+
+  const canContinue = Boolean(selectedRole && email.trim() && password.trim());
+
+  const handleLogin = async () => {
+    const ready = await login({ email, password });
+    if (ready) {
+      onAuthenticated();
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.screen}>
@@ -36,24 +47,43 @@ export function LoginScreen({ navigation, onAuthenticated }: Props) {
 
           <View style={styles.passwordMeta}>
             <Text style={styles.passwordLabel}>Password</Text>
-            <TouchableOpacity activeOpacity={0.85}>
-              <Text style={styles.metaAction}>Forgot?</Text>
-            </TouchableOpacity>
+            <Text style={styles.metaAction}>Secure login</Text>
           </View>
 
-          <InputField
-            onChangeText={setPassword}
-            placeholder="........"
-            secureTextEntry
-            value={password}
-          />
+          <InputField onChangeText={setPassword} placeholder="........" secureTextEntry value={password} />
 
-          <PrimaryButton label="Login" onPress={onAuthenticated} />
+          <View style={styles.roleSection}>
+            <Text style={styles.roleLabel}>Role</Text>
+            <View style={styles.roleRow}>
+              {(['PATIENT', 'DOCTOR'] as const).map((role) => {
+                const selected = selectedRole === role;
+                return (
+                  <TouchableOpacity
+                    key={role}
+                    activeOpacity={0.9}
+                    onPress={() => {
+                      clearSessionError();
+                      setSelectedRole(role);
+                    }}
+                    style={[styles.roleButton, selected && styles.roleButtonSelected]}
+                  >
+                    <Text style={[styles.roleButtonLabel, selected && styles.roleButtonLabelSelected]}>
+                      {role === 'PATIENT' ? 'Patient' : 'Doctor'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {sessionError ? <Text style={styles.inlineError}>{sessionError}</Text> : null}
+
+          <PrimaryButton disabled={!canContinue} label="Login" loading={sessionBusy} onPress={handleLogin} />
         </View>
       </Card>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Don&apos;t have an account?</Text>
+        <Text style={styles.footerText}>Don't have an account?</Text>
         <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('SignInScreen')}>
           <Text style={styles.footerLink}>Sign up</Text>
         </TouchableOpacity>
@@ -61,7 +91,7 @@ export function LoginScreen({ navigation, onAuthenticated }: Props) {
 
       <View style={styles.legalRow}>
         <Text style={styles.legalText}>Privacy Policy</Text>
-        <Text style={styles.legalDot}>â€¢</Text>
+        <Text style={styles.legalDot}>•</Text>
         <Text style={styles.legalText}>Terms of Service</Text>
       </View>
     </ScrollView>
@@ -114,7 +144,43 @@ const styles = StyleSheet.create({
   },
   metaAction: {
     ...theme.typography.label,
+    color: theme.colors.neutrals.textSubtle,
+  },
+  roleSection: {
+    gap: theme.spacing[2],
+  },
+  roleLabel: {
+    ...theme.typography.label,
+    color: theme.colors.neutrals.textBody,
+    marginLeft: theme.spacing[1],
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: theme.spacing[3],
+  },
+  roleButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.neutrals.border,
+    backgroundColor: theme.colors.neutrals.surfaceSoft,
+    paddingVertical: theme.spacing[3],
+  },
+  roleButtonSelected: {
+    backgroundColor: theme.colors.brand.blue50,
+    borderColor: theme.colors.brand.blue500,
+  },
+  roleButtonLabel: {
+    ...theme.typography.label,
+    color: theme.colors.neutrals.textBody,
+  },
+  roleButtonLabelSelected: {
     color: theme.colors.brand.blue500,
+  },
+  inlineError: {
+    ...theme.typography.label,
+    color: theme.colors.accent.rose,
   },
   footer: {
     flexDirection: 'row',

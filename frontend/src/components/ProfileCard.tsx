@@ -1,7 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-import { Card } from './Card';
 import { theme } from '../styles/theme';
 
 type ProfileCardProps = {
@@ -9,7 +8,6 @@ type ProfileCardProps = {
   fallbackLabel: string;
   name: string;
   subtitle: string;
-  showMockTag?: boolean;
   accentColor?: string;
 };
 
@@ -18,7 +16,6 @@ export function ProfileCard({
   fallbackLabel,
   name,
   subtitle,
-  showMockTag = false,
   accentColor = theme.colors.semantic.success,
 }: ProfileCardProps) {
   return (
@@ -38,11 +35,6 @@ export function ProfileCard({
 
       <Text style={styles.name}>{name}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
-      {showMockTag ? (
-        <Card style={styles.mockTagCard}>
-          <Text style={styles.mockTagText}>Mock data</Text>
-        </Card>
-      ) : null}
     </View>
   );
 }
@@ -97,15 +89,5 @@ const styles = StyleSheet.create({
     ...theme.typography.label,
     color: theme.colors.brand.sky700,
     marginTop: theme.spacing[1],
-  },
-  mockTagCard: {
-    borderRadius: theme.radius.pill,
-    marginTop: theme.spacing[3],
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[4],
-  },
-  mockTagText: {
-    ...theme.typography.label,
-    color: theme.colors.neutrals.textMuted,
   },
 });

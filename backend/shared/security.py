@@ -1,7 +1,10 @@
 """Security utilities for authentication, validation, and sanitization."""
 
+import base64
 import hashlib
+import hmac
 import re
+import secrets
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -13,16 +16,48 @@ from config.settings import settings
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+PBKDF2_ITERATIONS = 600000
+PBKDF2_PREFIX = "pbkdf2_sha256"
+
+
+def _hash_password_pbkdf2(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
+    return "$".join(
+        [
+            PBKDF2_PREFIX,
+            str(PBKDF2_ITERATIONS),
+            base64.b64encode(salt).decode("ascii"),
+            base64.b64encode(derived).decode("ascii"),
+        ]
+    )
+
+
+def _verify_password_pbkdf2(plain_password: str, hashed_password: str) -> bool:
+    try:
+        _, iterations, salt_b64, hash_b64 = hashed_password.split("$", 3)
+        salt = base64.b64decode(salt_b64.encode("ascii"))
+        expected = base64.b64decode(hash_b64.encode("ascii"))
+        derived = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt, int(iterations))
+        return hmac.compare_digest(derived, expected)
+    except Exception:
+        return False
 
 
 def hash_password(password: str) -> str:
-    """Hash password using bcrypt."""
-    return pwd_context.hash(password)
+    """Hash password using a stable built-in KDF."""
+    return _hash_password_pbkdf2(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify password against current or legacy hashes."""
+    if hashed_password.startswith(f"{PBKDF2_PREFIX}$"):
+        return _verify_password_pbkdf2(plain_password, hashed_password)
+
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        return False
 
 
 def create_jwt_token(user_id: str, role: str = "USER", expires_delta: Optional[timedelta] = None) -> str:

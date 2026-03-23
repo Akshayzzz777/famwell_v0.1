@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BottomNav } from '../components/BottomNav';
@@ -6,75 +6,84 @@ import { Card } from '../components/Card';
 import { Header } from '../components/Header';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useJobStatus } from '../hooks/useJobStatus';
-import { placeholderStatus } from '../data/mockData';
 import { mainNavItems } from '../navigation/mainNavItems';
 import type { StatusScreenProps } from '../navigation/types';
 import { theme } from '../styles/theme';
 
 export function StatusScreen({ navigation, route }: StatusScreenProps) {
+  const [retrySeed, setRetrySeed] = useState(0);
   const jobId = route.params?.jobId ?? null;
   const fileName = route.params?.fileName;
-  const { status, loading, error } = useJobStatus(jobId);
-
-  const statusLabel = status?.status ?? placeholderStatus.status;
-  const progress = status?.progress ?? placeholderStatus.progress;
-  const statusNote =
-    jobId && status
-      ? 'Live data from the status API. Polling continues until the job completes or fails.'
-      : placeholderStatus.note;
+  const { status, loading, error } = useJobStatus(jobId, 3000, retrySeed);
 
   return (
     <View style={styles.screen}>
-      <Header
-        backLabel="<"
-        onBack={navigation.goBack}
-        subtitle={jobId ?? 'No active job'}
-        title="Processing Status"
-      />
+      <Header backLabel="<" onBack={navigation.goBack} subtitle={jobId ?? 'No active job'} title="Processing Status" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.summaryCard}>
-          <Text style={styles.statusCaption}>{loading ? 'Refreshing' : 'Current status'}</Text>
-          <Text style={styles.statusValue}>{statusLabel}</Text>
-          <Text style={styles.statusNote}>{statusNote}</Text>
-        </Card>
+        {!jobId ? (
+          <Card>
+            <Text style={styles.sectionLabel}>Empty state</Text>
+            <Text style={styles.helperText}>No job ID was provided to the status screen.</Text>
+          </Card>
+        ) : null}
 
-        <Card>
-          <Text style={styles.sectionLabel}>Progress</Text>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.max(progress, 8)}%` }]} />
-          </View>
-          <Text style={styles.progressText}>{progress}% complete</Text>
-        </Card>
+        {jobId ? (
+          <Card style={styles.summaryCard}>
+            <Text style={styles.statusCaption}>{loading ? 'Refreshing' : 'Current status'}</Text>
+            <Text style={styles.statusValue}>{status?.status ?? 'No status returned'}</Text>
+            <Text style={styles.statusNote}>
+              {status ? 'Live data from the status endpoint.' : 'No status payload has been returned yet.'}
+            </Text>
+          </Card>
+        ) : null}
 
-        <Card>
-          <Text style={styles.sectionLabel}>Source</Text>
-          <Text style={styles.helperText}>status</Text>
-          <Text style={styles.helperText}>
-            File: {fileName ?? 'Placeholder: no uploaded file linked to this screen yet.'}
-          </Text>
-        </Card>
+        {jobId ? (
+          <Card>
+            <Text style={styles.sectionLabel}>Progress</Text>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.max(status?.progress ?? 0, 8)}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{status?.progress ?? 0}% complete</Text>
+          </Card>
+        ) : null}
+
+        {jobId ? (
+          <Card>
+            <Text style={styles.sectionLabel}>Source</Text>
+            <Text style={styles.helperText}>status</Text>
+            <Text style={styles.helperText}>File: {fileName ?? 'Not provided'}</Text>
+          </Card>
+        ) : null}
+
+        {jobId && !loading && !error && !status ? (
+          <Card>
+            <Text style={styles.sectionLabel}>Empty state</Text>
+            <Text style={styles.helperText}>The status endpoint returned no body for this job.</Text>
+          </Card>
+        ) : null}
 
         {error ? (
           <Card style={styles.errorCard}>
             <Text style={styles.errorLabel}>Status error</Text>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>{error.message}</Text>
+            {error.retryable ? (
+              <View style={styles.retryWrap}>
+                <PrimaryButton label="Retry" onPress={() => setRetrySeed((value) => value + 1)} variant="secondary" />
+              </View>
+            ) : null}
           </Card>
         ) : null}
 
         <PrimaryButton
-          disabled={!jobId}
+          disabled={!jobId || status?.status !== 'COMPLETED'}
           label="View Result"
           onPress={() => navigation.navigate('ResultScreen', { jobId: jobId ?? undefined })}
           variant="secondary"
         />
       </ScrollView>
 
-      <BottomNav
-        activeRoute="StatusScreen"
-        items={mainNavItems}
-        onNavigate={(target) => navigation.navigate(target)}
-      />
+      <BottomNav activeRoute="StatusScreen" items={mainNavItems} onNavigate={(target) => navigation.navigate(target)} />
     </View>
   );
 }
@@ -146,5 +155,8 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.neutrals.textBody,
     marginTop: theme.spacing[2],
+  },
+  retryWrap: {
+    marginTop: theme.spacing[4],
   },
 });

@@ -1,8 +1,7 @@
 """Authentication and authorization utilities for FastAPI using Prisma."""
 
 import logging
-from typing import Optional, Dict, Any, List
-from datetime import datetime
+from typing import Optional, Dict, Any
 from enum import Enum
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -14,6 +13,7 @@ from config.settings import settings
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 
 class UserRole(str, Enum):
@@ -22,20 +22,8 @@ class UserRole(str, Enum):
     DOCTOR = "DOCTOR"
 
 
-async def verify_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    """Verify JWT token and return user ID.
-
-    Args:
-        credentials: HTTP Bearer credentials
-
-    Returns:
-        User ID from token
-
-    Raises:
-        HTTPException: If token is invalid
-    """
+def _decode_user_id_from_credentials(credentials: HTTPAuthorizationCredentials) -> str:
     token = credentials.credentials
-
     payload = decode_jwt_token(token)
 
     if not payload:
@@ -46,7 +34,6 @@ async def verify_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(s
         )
 
     user_id = payload.get("sub")
-
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -57,18 +44,13 @@ async def verify_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(s
     return user_id
 
 
+async def verify_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """Verify JWT token and return user ID."""
+    return _decode_user_id_from_credentials(credentials)
+
+
 async def get_current_user(user_id: str = Depends(verify_jwt_token)) -> Dict[str, Any]:
-    """Get current authenticated user.
-
-    Args:
-        user_id: User ID from token
-
-    Returns:
-        User dictionary object
-
-    Raises:
-        HTTPException: If user not found
-    """
+    """Get current authenticated user."""
     prisma = get_prisma_client(settings.database_url)
 
     try:
@@ -86,7 +68,6 @@ async def get_current_user(user_id: str = Depends(verify_jwt_token)) -> Dict[str
                 detail="User account is inactive",
             )
 
-        # Return user as dictionary with role
         return {
             "user_id": user.user_id,
             "email": user.email,
@@ -105,20 +86,20 @@ async def get_current_user(user_id: str = Depends(verify_jwt_token)) -> Dict[str
         )
 
 
+async def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
+) -> Optional[Dict[str, Any]]:
+    """Return the current user when a bearer token is present."""
+    if credentials is None:
+        return None
+
+    user_id = _decode_user_id_from_credentials(credentials)
+    return await get_current_user(user_id)
+
+
 def require_role(*allowed_roles: UserRole):
-    """Create a dependency that requires specific user roles.
+    """Create a dependency that requires specific user roles."""
 
-    Args:
-        *allowed_roles: One or more UserRole values that are permitted
-
-    Returns:
-        Dependency function that validates user role
-
-    Example:
-        @router.get("/doctor-only")
-        async def doctor_endpoint(user: dict = Depends(require_role(UserRole.DOCTOR))):
-            ...
-    """
     async def role_checker(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
         user_role = current_user.get("role", "USER")
         allowed_values = [role.value for role in allowed_roles]
@@ -134,7 +115,6 @@ def require_role(*allowed_roles: UserRole):
     return role_checker
 
 
-# Convenience dependencies for common role checks
 require_user = require_role(UserRole.USER, UserRole.DOCTOR)
 require_doctor = require_role(UserRole.DOCTOR)
-
+require_patient = require_role(UserRole.USER)

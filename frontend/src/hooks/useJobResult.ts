@@ -1,27 +1,32 @@
 import { useCallback, useState } from 'react';
-import { documentService } from '../services/documentService';
+
+import { useRole } from '../context/RoleContext';
+import { fetchJobResult, type ApiFailure } from '../services/api';
 
 export const useJobResult = () => {
+  const { selectedRole } = useRole();
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiFailure | null>(null);
 
-  const getResult = useCallback(async (jobId: string) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const getResult = useCallback(
+    async (jobId: string) => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const data = await documentService.getJobResult(jobId);
-      setResult(data);
-      return data;
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Failed to fetch result';
-      setError(message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        const data = await fetchJobResult(selectedRole, jobId);
+        setResult(data);
+        return data;
+      } catch (failure) {
+        setError(failure as ApiFailure);
+        throw failure;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedRole]
+  );
 
   return { result, loading, error, getResult };
 };

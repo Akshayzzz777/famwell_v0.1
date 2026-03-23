@@ -1,35 +1,17 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BottomNav } from '../components/BottomNav';
 import { Card } from '../components/Card';
 import { Header } from '../components/Header';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { useFileUpload } from '../hooks/useFileUpload';
+import { useRole } from '../context/RoleContext';
 import { mainNavItems } from '../navigation/mainNavItems';
 import type { UploadScreenProps } from '../navigation/types';
 import { theme } from '../styles/theme';
 
 export function UploadScreen({ navigation }: UploadScreenProps) {
-  const { uploadFile, loading, error } = useFileUpload();
-  const [latestFileName, setLatestFileName] = useState<string | null>(null);
-
-  const handleUpload = async () => {
-    try {
-      const response = await uploadFile();
-      if (!response) {
-        return;
-      }
-
-      setLatestFileName(response.filename);
-      navigation.navigate('StatusScreen', {
-        jobId: response.job_id,
-        fileName: response.filename,
-      });
-    } catch {
-      // Error state is rendered below.
-    }
-  };
+  const { hasStoredToken, selectedRole } = useRole();
 
   return (
     <View style={styles.screen}>
@@ -38,38 +20,25 @@ export function UploadScreen({ navigation }: UploadScreenProps) {
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.heroCard}>
           <Text style={styles.heroTitle}>Send a document to FamWell</Text>
-          <Text style={styles.heroText}>
-            This screen is connected to the existing upload API. In Expo development mode the picker returns mock PDF metadata.
-          </Text>
-          <PrimaryButton label="Upload PDF" loading={loading} onPress={handleUpload} />
+          <Text style={styles.heroText}>Upload is wired to the live backend endpoint, but the current frontend has no document picker dependency to supply a PDF file.</Text>
+          {/* TODO: awaiting file picker integration */}
+          <PrimaryButton disabled label="Upload PDF" onPress={() => undefined} />
         </Card>
 
         <Card>
           <Text style={styles.sectionLabel}>Endpoint</Text>
           <Text style={styles.endpointValue}>upload</Text>
-          <Text style={styles.helperText}>
-            The backend integration remains unchanged and still uses the current multipart upload flow.
-          </Text>
+          <Text style={styles.helperText}>Role selected: {selectedRole ?? 'None'}</Text>
+          <Text style={styles.helperText}>Stored token: {hasStoredToken ? 'Present' : 'Missing'}</Text>
         </Card>
 
         <Card>
-          <Text style={styles.sectionLabel}>Latest file</Text>
-          <Text style={styles.helperText}>{latestFileName ?? 'Placeholder: no file uploaded in this session.'}</Text>
+          <Text style={styles.sectionLabel}>Status</Text>
+          <Text style={styles.helperText}>Upload is disabled until a file picker is added to the frontend runtime.</Text>
         </Card>
-
-        {error ? (
-          <Card style={styles.errorCard}>
-            <Text style={styles.errorLabel}>Upload error</Text>
-            <Text style={styles.errorText}>{error}</Text>
-          </Card>
-        ) : null}
       </ScrollView>
 
-      <BottomNav
-        activeRoute="UploadScreen"
-        items={mainNavItems}
-        onNavigate={(route) => navigation.navigate(route)}
-      />
+      <BottomNav activeRoute="UploadScreen" items={mainNavItems} onNavigate={(route) => navigation.navigate(route)} />
     </View>
   );
 }
@@ -112,17 +81,5 @@ const styles = StyleSheet.create({
     color: theme.colors.neutrals.textMuted,
     marginTop: theme.spacing[2],
   },
-  errorCard: {
-    borderColor: theme.colors.accent.rose,
-    backgroundColor: theme.colors.accent.redSoft,
-  },
-  errorLabel: {
-    ...theme.typography.bodyStrong,
-    color: theme.colors.accent.rose,
-  },
-  errorText: {
-    ...theme.typography.body,
-    color: theme.colors.neutrals.textBody,
-    marginTop: theme.spacing[2],
-  },
 });
+

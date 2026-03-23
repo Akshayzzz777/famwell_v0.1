@@ -1,5 +1,3 @@
-// Type definitions for the Document Processor API
-
 export interface UploadResponse {
   file_id: string;
   job_id: string;
@@ -63,3 +61,4 @@ export interface ApiError {
   message?: string;
   status?: number;
 }
+
