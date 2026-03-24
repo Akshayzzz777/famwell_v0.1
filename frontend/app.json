@@ -1,31 +1,44 @@
 {
-  "expo": {
-    "name": "FamWell",
-    "slug": "famwell-mobile",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "light",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "buildNumber": "1"
-    },
-    "android": {
-      "permissions": [
-        "android.permission.INTERNET"
-      ],
-      "versionCode": 1,
-      "package": "com.famwell"
-    },
-    "web": {
-      "bundler": "metro"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "document-processor-mobile"
-      }
-    },
-    "scheme": "famwell-mobile"
-  }
+    "expo":  {
+                 "name":  "FamWell",
+                 "slug":  "famwell-mobile",
+                 "version":  "1.0.0",
+                 "orientation":  "portrait",
+                 "userInterfaceStyle":  "light",
+                 "assetBundlePatterns":  [
+                                             "**/*"
+                                         ],
+                 "ios":  {
+                             "buildNumber":  "1",
+                             "infoPlist":  {
+                                               "NSAppTransportSecurity":  {
+                                                                              "NSAllowsArbitraryLoads":  true,
+                                                                              "NSAllowsLocalNetworking":  true
+                                                                          },
+                                               "NSLocalNetworkUsageDescription":  "FamWell connects to your local development server during development."
+                                           }
+                         },
+                 "android":  {
+                                 "permissions":  [
+                                                     "android.permission.INTERNET"
+                                                 ],
+                                 "versionCode":  1,
+                                 "package":  "com.famwell"
+                             },
+                 "web":  {
+                             "bundler":  "metro"
+                         },
+                 "extra":  {
+                               "eas":  {
+                                           "projectId":  "document-processor-mobile"
+                                       },
+                               "apiUrl":  "http://10.10.36.120:8000",
+                               "apiUrls":  [
+                                                "http://10.10.36.120:8000",
+                                                "http://10.187.123.74:8000"
+                                            ]
+                           },
+                 "scheme":  "famwell-mobile"
+             }
 }
+

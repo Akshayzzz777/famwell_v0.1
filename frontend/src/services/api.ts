@@ -104,25 +104,60 @@ type SuccessEnvelope<T> = {
   message?: string;
 };
 
-function resolveApiBaseUrl() {
-  const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\s+/g, '').trim();
+type ApiClientRequestConfig = {
+  _apiCandidateIndex?: number;
+  baseURL?: string;
+  url?: string;
+  headers?: {
+    Authorization?: string;
+  };
+};
+
+function normalizeBaseUrl(url: string) {
+  return url.trim().replace(/\/$/, '');
+}
+
+function parseConfiguredApiUrls(raw?: string | null) {
+  if (!raw) {
+    return [] as string[];
+  }
+
+  return raw
+    .split(/[\s,;]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map(normalizeBaseUrl);
+}
+
+function dedupeUrls(urls: string[]) {
+  return [...new Set(urls)];
+}
+
+function resolveApiBaseUrls() {
+  const configuredUrls = parseConfiguredApiUrls(process.env.EXPO_PUBLIC_API_URLS);
+  const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
+  const candidates = [...configuredUrls];
+
   if (configured) {
-    return configured;
+    candidates.push(normalizeBaseUrl(configured));
   }
 
   if (typeof window !== 'undefined' && window.location?.hostname) {
     const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-    return `http://${host}:8000`;
+    candidates.push(`http://${host}:8000`);
   }
 
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8000';
+    candidates.push('http://10.0.2.2:8000');
   }
 
-  return 'http://127.0.0.1:8000';
+  candidates.push('http://127.0.0.1:8000');
+
+  return dedupeUrls(candidates);
 }
 
-export const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URLS = resolveApiBaseUrls();
+export const API_BASE_URL = API_BASE_URLS[0];
 const ACCESS_TOKEN_KEY = 'auth_token';
 const SELECTED_ROLE_KEY = 'selected_role';
 const SESSION_USER_KEY = 'session_user';
@@ -290,6 +325,7 @@ function ensureToken(endpoint: string) {
 
 function normalizeError(endpoint: string, error: unknown): ApiFailure {
   const axiosError = error as AxiosError;
+  const attemptedBaseUrl = axiosError.config?.baseURL || API_BASE_URL;
   const status = axiosError.response?.status;
   const body = axiosError.response?.data as SuccessEnvelope<unknown> | undefined;
   const message = body?.message || axiosError.message || 'Unexpected API error.';
@@ -319,10 +355,15 @@ function normalizeError(endpoint: string, error: unknown): ApiFailure {
   }
 
   if (axiosError.request && !axiosError.response) {
-    return createFailure(endpoint, 'network', `The network request failed. API base URL: ${API_BASE_URL}`, {
+    return createFailure(
+      endpoint,
+      'network',
+      `The network request failed. Attempted API base URL: ${attemptedBaseUrl}. Available API base URLs: ${API_BASE_URLS.join(', ')}`,
+      {
       retryable: true,
       status,
-    });
+      }
+    );
   }
 
   return createFailure(endpoint, 'unknown', message, {
@@ -355,7 +396,13 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
+  const requestConfig = config as typeof config & ApiClientRequestConfig;
   const { token } = loadPersistedAccess();
+  const baseUrlIndex = requestConfig._apiCandidateIndex ?? 0;
+
+  requestConfig._apiCandidateIndex = baseUrlIndex;
+  config.baseURL = API_BASE_URLS[baseUrlIndex] ?? API_BASE_URL;
+
   const url = `${config.baseURL ?? ''}${config.url ?? ''}`;
 
   if (token) {
@@ -380,14 +427,26 @@ client.interceptors.response.use(
 
     return response;
   },
-  (error) => {
+  async (error) => {
     console.log('[RESPONSE]', {
       status: error.response?.status ?? null,
       data: error.response?.data ?? null,
     });
 
     const endpoint = error.config?.url ?? 'unknown';
+    const requestConfig = error.config as (typeof error.config & ApiClientRequestConfig) | undefined;
     const failure = normalizeError(endpoint, error);
+
+    if (failure.kind === 'network' && requestConfig) {
+      const currentIndex = requestConfig._apiCandidateIndex ?? 0;
+      const nextIndex = currentIndex + 1;
+
+      if (nextIndex < API_BASE_URLS.length) {
+        requestConfig._apiCandidateIndex = nextIndex;
+        requestConfig.baseURL = API_BASE_URLS[nextIndex];
+        return client.request(requestConfig);
+      }
+    }
 
     if (failure.kind === 'unauthorized' && !isAuthRoute(endpoint)) {
       clearPersistedAccess();

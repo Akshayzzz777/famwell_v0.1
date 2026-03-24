@@ -1,9 +1,7 @@
 import React from 'react';
 
-import { RootNavigator } from './src/navigation/RootNavigator';
-
-const DEV_MODE = true;
+import { RootNavigator } from './src/app/RootNavigator';
 
 export default function App() {
-  return <RootNavigator devMode={DEV_MODE} />;
+  return <RootNavigator />;
 }
