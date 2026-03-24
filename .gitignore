@@ -1,4 +1,4 @@
-# .gitignore
+
 
 # Environment files
 .env
@@ -95,3 +95,20 @@ Thumbs.db
 # Project specific
 .env.production
 backend/database/migrations/__pycache__/
+docs/
+node_modules/
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+.env.local
+.env.*.local
+
