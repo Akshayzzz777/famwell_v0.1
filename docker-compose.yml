@@ -48,7 +48,9 @@ services:
       JWT_SECRET_KEY: dev-secret-key-change-in-production
       GCS_PROJECT_ID: ${GCS_PROJECT_ID:-your-project}
       GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-your-bucket}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4}
       CORS_ORIGINS: "http://localhost:3000,http://localhost:8000"
     ports:
       - "8000:8000"
@@ -76,7 +78,9 @@ services:
       JWT_SECRET_KEY: dev-secret-key-change-in-production
       GCS_PROJECT_ID: ${GCS_PROJECT_ID:-your-project}
       GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-your-bucket}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4}
       WORKER_CONCURRENCY: 4
       WORKER_JOB_TIMEOUT_SECONDS: 300
     depends_on:
