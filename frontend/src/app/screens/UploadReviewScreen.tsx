@@ -8,9 +8,10 @@ import { uploadPdf, type ApiFailure } from '../lib/api';
 import { theme } from '../lib/theme';
 import { useApp } from '../state/AppContext';
 import type { UploadReviewProps } from '../navigation';
+import { Alert } from 'react-native';
 
 export function UploadReviewScreen({ navigation }: UploadReviewProps) {
-  const { pendingUpload, selectedRole, setActiveJob, setPendingUpload } = useApp();
+  const { pendingUpload, selectedRole, setPendingUpload } = useApp();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiFailure | null>(null);
 
@@ -23,15 +24,13 @@ export function UploadReviewScreen({ navigation }: UploadReviewProps) {
       setSubmitting(true);
       setError(null);
       const response = await uploadPdf(selectedRole, pendingUpload);
-      setActiveJob({
-        fileId: response.file_id,
-        fileName: response.filename,
-        jobId: response.job_id,
-        uploadUrl: response.upload_url,
-      });
       setPendingUpload(null);
-      navigation.replace('StatusScreen', { fileName: response.filename, jobId: response.job_id });
+      Alert.alert('Upload Successful', `"${response.file_name}" uploaded. Go to AI Insights to analyze it.`, [
+        { text: 'View Insights', onPress: () => navigation.replace('AIInsights') },
+        { text: 'Upload More', onPress: () => navigation.replace('UploadDocuments') },
+      ]);
     } catch (failure) {
+      console.error('[UploadReview] upload failed:', JSON.stringify(failure));
       setError(failure as ApiFailure);
     } finally {
       setSubmitting(false);
@@ -45,7 +44,7 @@ export function UploadReviewScreen({ navigation }: UploadReviewProps) {
       ) : (
         <>
           <Card style={styles.summaryCard}>
-            <SectionTitle detail="Confirm the selected file and continue when you’re ready." eyebrow="Step 2" title={pendingUpload.name} />
+            <SectionTitle detail="Confirm the selected file and continue when youre ready." eyebrow="Step 2" title={pendingUpload.name} />
             <View style={styles.detailRow}>
               <SectionTitle eyebrow="Format" title="PDF" />
               <SectionTitle eyebrow="Size" title={pendingUpload.size ? `${Math.round(pendingUpload.size / 1024)} KB` : 'Unavailable'} />

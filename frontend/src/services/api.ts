@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 export type UiRole = 'DOCTOR' | 'PATIENT';
@@ -40,6 +41,7 @@ export type ConnectionItem = {
   connection_id: string;
   follower_id: string;
   following_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
   created_at: string;
   user: {
     email: string;
@@ -54,9 +56,74 @@ export type ConnectionsPayload = {
   connections: ConnectionItem[];
 };
 
+export type PendingRequestsPayload = {
+  requests: ConnectionItem[];
+};
+
 export type InsightsPayload = {
   status: string;
   message: string;
+};
+
+export type ChatMessage = {
+  message_id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+};
+
+export type ChatResponse = {
+  conversation_id: string;
+  message: ChatMessage;
+};
+
+export type ConversationItem = {
+  conversation_id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  last_message?: string | null;
+  message_count?: number;
+};
+
+export type ConversationsPayload = {
+  conversations: ConversationItem[];
+};
+
+export type ChatHistoryPayload = {
+  conversation_id: string;
+  messages: ChatMessage[];
+};
+
+export type MedicalRecordItem = {
+  medical_record_id: string;
+  user_id: string;
+  file_url: string;
+  file_name: string;
+  record_type: string;
+  upload_date: string;
+};
+
+export type MedicalRecordsPayload = {
+  records: MedicalRecordItem[];
+};
+
+export type MetricDetail = {
+  value: string | number;
+  unit?: string;
+  normal_range?: string;
+  status?: 'normal' | 'borderline' | 'abnormal' | 'slightly elevated' | string;
+};
+
+export type HealthAnalysis = {
+  health_score: number | null;
+  stress_score: number | null;
+  metrics: Record<string, MetricDetail | string | number>;
+  risks: string[];
+  insights: string[];
+  recommendations: string[];
 };
 
 export type HealthPayload = {
@@ -133,18 +200,65 @@ function dedupeUrls(urls: string[]) {
   return [...new Set(urls)];
 }
 
+const PROJECT_DEFAULT_API_URLS = ['http://10.101.201.74:8000', 'http://10.10.36.120:8000'];
+
+function getExpoConfiguredApiUrl() {
+  const expoConfig = Constants.expoConfig as { extra?: { apiUrl?: string } } | null;
+  const configured = expoConfig?.extra?.apiUrl?.trim();
+  return configured ? normalizeBaseUrl(configured) : null;
+}
+
+function getExpoConfiguredApiUrls() {
+  const expoConfig = Constants.expoConfig as { extra?: { apiUrls?: string[] | string } } | null;
+  const configured = expoConfig?.extra?.apiUrls;
+  if (Array.isArray(configured)) {
+    return configured.map(normalizeBaseUrl);
+  }
+  return parseConfiguredApiUrls(configured);
+}
+
+function getExpoHost() {
+  const expoConfigHost = (Constants.expoConfig as { hostUri?: string } | null)?.hostUri;
+  const manifestDebuggerHost = (Constants as unknown as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost;
+  const manifest2DebuggerHost = (Constants as unknown as { manifest2?: { extra?: { expoGo?: { debuggerHost?: string } } } }).manifest2?.extra?.expoGo?.debuggerHost;
+  const hostSource = expoConfigHost || manifestDebuggerHost || manifest2DebuggerHost;
+  if (!hostSource) return null;
+  return hostSource.split(':')[0] || null;
+}
+
 function resolveApiBaseUrls() {
   const configuredUrls = parseConfiguredApiUrls(process.env.EXPO_PUBLIC_API_URLS);
   const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
   const candidates = [...configuredUrls];
 
+  // On web, always try localhost first
+  if (Platform.OS === 'web') {
+    candidates.push('http://127.0.0.1:8000');
+  }
+
   if (configured) {
     candidates.push(normalizeBaseUrl(configured));
   }
 
-  if (typeof window !== 'undefined' && window.location?.hostname) {
+  // Read URLs from app.json expo.extra
+  candidates.push(...getExpoConfiguredApiUrls());
+  const expoConfigured = getExpoConfiguredApiUrl();
+  if (expoConfigured) {
+    candidates.push(expoConfigured);
+  }
+
+  // Hardcoded project defaults (Wi-Fi IP first)
+  candidates.push(...PROJECT_DEFAULT_API_URLS.map(normalizeBaseUrl));
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
     const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
     candidates.push(`http://${host}:8000`);
+  }
+
+  // Expo dev server host → backend on same machine
+  const expoHost = getExpoHost();
+  if (expoHost && expoHost !== 'localhost' && expoHost !== '127.0.0.1') {
+    candidates.push(`http://${expoHost}:8000`);
   }
 
   if (Platform.OS === 'android') {
@@ -440,8 +554,9 @@ client.interceptors.response.use(
     if (failure.kind === 'network' && requestConfig) {
       const currentIndex = requestConfig._apiCandidateIndex ?? 0;
       const nextIndex = currentIndex + 1;
+      const isWebFileUpload = Platform.OS === 'web' && requestConfig.data instanceof FormData;
 
-      if (nextIndex < API_BASE_URLS.length) {
+      if (!isWebFileUpload && nextIndex < API_BASE_URLS.length) {
         requestConfig._apiCandidateIndex = nextIndex;
         requestConfig.baseURL = API_BASE_URLS[nextIndex];
         return client.request(requestConfig);
@@ -557,8 +672,8 @@ export async function fetchInsights(role: UiRole | null) {
 }
 
 export async function uploadPdf(role: UiRole | null, file: { name: string; type: string; uri: string }) {
-  ensureRole(role, '/api/upload');
-  ensureToken('/api/upload');
+  ensureRole(role, '/api/medical-records/upload');
+  ensureToken('/api/medical-records/upload');
 
   const formData = new FormData();
   formData.append('file', {
@@ -566,12 +681,14 @@ export async function uploadPdf(role: UiRole | null, file: { name: string; type:
     type: file.type,
     uri: file.uri,
   } as never);
+  formData.append('record_type', 'general');
 
-  const response = await client.post('/api/upload', formData, {
+  const response = await client.post('/api/medical-records/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-  return response.data || null;
+  const payload = response.data?.data ?? response.data;
+  return payload || null;
 }
 
 export async function fetchJobStatus(role: UiRole | null, jobId: string) {
@@ -588,5 +705,135 @@ export async function fetchJobResult(role: UiRole | null, jobId: string) {
 
   const response = await client.get(`/api/result/${jobId}`);
   return response.data || null;
+}
+
+// ── Follow / Connection endpoints ──
+
+export async function sendFollowRequest(role: UiRole | null, healthId: string) {
+  ensureRole(role, '/api/follow');
+  ensureToken('/api/follow');
+
+  const response = await client.post('/api/follow', {
+    health_id: healthId.trim().toUpperCase(),
+  });
+
+  return unwrapSuccess<ConnectionItem>('/api/follow', response.data);
+}
+
+export async function respondToFollowRequest(
+  role: UiRole | null,
+  connectionId: string,
+  action: 'accepted' | 'rejected'
+) {
+  ensureRole(role, '/api/follow-action');
+  ensureToken('/api/follow-action');
+
+  const response = await client.post('/api/follow-action', {
+    connection_id: connectionId,
+    action,
+  });
+
+  return unwrapSuccess<ConnectionItem>('/api/follow-action', response.data);
+}
+
+export async function fetchPendingRequests(role: UiRole | null) {
+  ensureRole(role, '/api/connections/pending');
+  ensureToken('/api/connections/pending');
+
+  const response = await client.get('/api/connections/pending');
+  return unwrapSuccess<PendingRequestsPayload>('/api/connections/pending', response.data);
+}
+
+// ── Chat endpoints ──
+
+export async function sendChatMessage(
+  role: UiRole | null,
+  message: string,
+  conversationId?: string
+) {
+  ensureRole(role, '/api/chat');
+  ensureToken('/api/chat');
+
+  const response = await client.post('/api/chat', {
+    message,
+    conversation_id: conversationId,
+  });
+
+  return unwrapSuccess<ChatResponse>('/api/chat', response.data);
+}
+
+export async function fetchConversations(role: UiRole | null) {
+  ensureRole(role, '/api/chat/conversations');
+  ensureToken('/api/chat/conversations');
+
+  const response = await client.get('/api/chat/conversations');
+  return unwrapSuccess<ConversationsPayload>('/api/chat/conversations', response.data);
+}
+
+export async function fetchChatHistory(role: UiRole | null, conversationId: string) {
+  ensureRole(role, `/api/chat/history/${conversationId}`);
+  ensureToken(`/api/chat/history/${conversationId}`);
+
+  const response = await client.get(`/api/chat/history/${conversationId}`);
+  return unwrapSuccess<ChatHistoryPayload>(`/api/chat/history/${conversationId}`, response.data);
+}
+
+// ── Medical Record endpoints ──
+
+export async function uploadMedicalRecord(
+  role: UiRole | null,
+  file: { name: string; type: string; uri: string },
+  recordType: string = 'general'
+) {
+  ensureRole(role, '/api/medical-records/upload');
+  ensureToken('/api/medical-records/upload');
+
+  const formData = new FormData();
+  formData.append('file', {
+    name: file.name,
+    type: file.type,
+    uri: file.uri,
+  } as never);
+  formData.append('record_type', recordType);
+
+  const response = await client.post('/api/medical-records/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+  return unwrapSuccess<MedicalRecordItem>('/api/medical-records/upload', response.data);
+}
+
+export async function fetchMedicalRecords(role: UiRole | null) {
+  ensureRole(role, '/api/medical-records');
+  ensureToken('/api/medical-records');
+
+  const response = await client.get('/api/medical-records');
+  return unwrapSuccess<MedicalRecordsPayload>('/api/medical-records', response.data);
+}
+
+export async function analyzeMedicalRecord(role: UiRole | null, recordId: string) {
+  ensureRole(role, `/api/medical-records/${recordId}/analyze`);
+  ensureToken(`/api/medical-records/${recordId}/analyze`);
+
+  const response = await client.post(`/api/medical-records/${recordId}/analyze`);
+  return unwrapSuccess<HealthAnalysis>(`/api/medical-records/${recordId}/analyze`, response.data);
+}
+
+// ── Health Insights endpoints ──
+
+export async function fetchHealthInsights(role: UiRole | null, recordId: string) {
+  ensureRole(role, `/api/health-insights/${recordId}`);
+  ensureToken(`/api/health-insights/${recordId}`);
+
+  const response = await client.get(`/api/health-insights/${recordId}`);
+  return unwrapSuccess<HealthAnalysis>(`/api/health-insights/${recordId}`, response.data);
+}
+
+export async function fetchLatestHealthInsights(role: UiRole | null) {
+  ensureRole(role, '/api/health-insights/latest');
+  ensureToken('/api/health-insights/latest');
+
+  const response = await client.get('/api/health-insights/latest');
+  return unwrapSuccess<HealthAnalysis>('/api/health-insights/latest', response.data);
 }
 
