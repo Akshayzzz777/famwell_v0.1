@@ -39,13 +39,16 @@ class Settings(BaseSettings):
     gcs_project_id: str = Field(default="", env="GCS_PROJECT_ID")
     gcs_bucket_name: str = Field(default="document-processor-bucket", env="GCS_BUCKET_NAME")
     gcs_credentials_path: str = Field(default="/secrets/gcs-key.json", env="GCS_CREDENTIALS_PATH")
+    local_upload_dir: str = Field(default=".uploads", env="LOCAL_UPLOAD_DIR")
 
-    # Gemini API
-    gemini_api_key: str = Field(default="", env="GEMINI_API_KEY")
-    gemini_model: str = Field(default="gemini-2.0-flash", env="GEMINI_MODEL")
-    gemini_timeout_seconds: int = Field(default=30, env="GEMINI_TIMEOUT_SECONDS")
-    gemini_max_retries: int = Field(default=3, env="GEMINI_MAX_RETRIES")
-    gemini_retry_delay_seconds: int = Field(default=2, env="GEMINI_RETRY_DELAY_SECONDS")
+    # Azure OpenAI
+    azure_openai_endpoint: str = Field(default="", env="AZURE_OPENAI_ENDPOINT")
+    azure_openai_api_key: str = Field(default="", env="AZURE_OPENAI_API_KEY")
+    azure_openai_deployment: str = Field(default="gpt-4", env="AZURE_OPENAI_DEPLOYMENT")
+    azure_openai_api_version: str = Field(default="2025-01-01-preview", env="AZURE_OPENAI_API_VERSION")
+    azure_openai_timeout_seconds: int = Field(default=30, env="AZURE_OPENAI_TIMEOUT_SECONDS")
+    azure_openai_max_retries: int = Field(default=3, env="AZURE_OPENAI_MAX_RETRIES")
+    azure_openai_retry_delay_seconds: int = Field(default=2, env="AZURE_OPENAI_RETRY_DELAY_SECONDS")
 
     # File Upload
     max_file_size_mb: int = Field(default=50, env="MAX_FILE_SIZE_MB")
@@ -65,7 +68,7 @@ class Settings(BaseSettings):
     # Security
     enable_https: bool = Field(default=False, env="ENABLE_HTTPS")
     cors_origins: str = Field(
-        default="http://localhost:3000,http://localhost:8000",
+        default="http://localhost:3000,http://localhost:8000,http://localhost:8081,http://127.0.0.1:8081,http://127.0.0.1:8000",
         env="CORS_ORIGINS"
     )
 
@@ -85,7 +88,8 @@ class Settings(BaseSettings):
         return self.max_file_size_mb * 1024 * 1024
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "../.env", "backend/.env")
+        extra = "ignore"
         case_sensitive = False
 
 
