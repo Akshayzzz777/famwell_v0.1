@@ -112,3 +112,4 @@ web-build/
 .env.local
 .env.*.local
 
+.uploads/
