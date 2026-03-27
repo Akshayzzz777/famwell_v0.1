@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { AppProvider, useApp } from './state/AppContext';
 import { AuthScreen } from './screens/AuthScreen';
@@ -18,6 +19,18 @@ import { FamilyProfilesScreen } from './screens/FamilyProfilesScreen';
 import { FriendsAndFamilyScreen } from './screens/FriendsAndFamilyScreen';
 import { AIInsightsScreen } from './screens/AIInsightsScreen';
 import type { AuthStackParamList, MainStackParamList, SplashStackParamList } from './navigation';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      retry: 1,
+    },
+  },
+});
 
 type Flow = 'splash' | 'auth' | 'main';
 
@@ -88,9 +101,11 @@ function NavigationShell() {
 export function RootNavigator() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <NavigationShell />
-      </AppProvider>
+      <QueryClientProvider client={queryClient}>
+        <AppProvider>
+          <NavigationShell />
+        </AppProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
