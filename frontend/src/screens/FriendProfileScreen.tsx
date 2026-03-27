@@ -7,6 +7,7 @@ import { Header } from '../components/Header';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ProfileCard } from '../components/ProfileCard';
 import { useRole } from '../context/RoleContext';
+import { useHealthInsights } from '../hooks/useHealthInsights';
 import { useInsights } from '../hooks/useInsights';
 import { useRecords } from '../hooks/useRecords';
 import { mainNavItems } from '../navigation/mainNavItems';
@@ -17,6 +18,7 @@ export function FriendProfileScreen({ navigation }: FriendProfileProps) {
   const { currentUser, selectedRole } = useRole();
   const { insights, loading: insightsLoading, error: insightsError, refresh: refreshInsights } = useInsights();
   const { records, loading: recordsLoading, error: recordsError, refresh: refreshRecords } = useRecords();
+  const { data: healthData, loading: healthLoading } = useHealthInsights();
   const visibleRecords = records.slice(0, 3);
 
   const navItems = mainNavItems.map((item) => {
@@ -55,6 +57,29 @@ export function FriendProfileScreen({ navigation }: FriendProfileProps) {
             </View>
           ) : null}
         </Card>
+
+        {selectedRole === 'DOCTOR' ? (
+          <Card>
+            <Text style={styles.sectionTitle}>AI Health Analysis</Text>
+            {healthLoading ? (
+              <Text style={styles.notes}>Analyzing health data...</Text>
+            ) : healthData?.health_score != null ? (
+              <>
+                <Text style={styles.notes}>Health Score: {healthData.health_score}/100</Text>
+                {healthData.insights.slice(0, 3).map((insight, i) => (
+                  <Text key={i} style={[styles.notes, { marginTop: 4 }]}>{'\u2022'} {insight}</Text>
+                ))}
+                {healthData.risks.length > 0 ? (
+                  <Text style={[styles.notes, { marginTop: 8, color: theme.colors.accent.rose }]}>
+                    Risks: {healthData.risks.join(', ')}
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <Text style={styles.notes}>No health analysis available yet.</Text>
+            )}
+          </Card>
+        ) : null}
 
         {selectedRole === 'DOCTOR' ? (
           <View style={styles.actions}>

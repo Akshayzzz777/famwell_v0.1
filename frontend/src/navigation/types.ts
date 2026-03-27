@@ -21,6 +21,11 @@ export type MainStackParamList = {
   ResultScreen: {
     jobId?: string;
   } | undefined;
+  InboxScreen: undefined;
+  ChatScreen: {
+    conversationId?: string;
+  } | undefined;
+  ConnectionsScreen: undefined;
 };
 
 export type MainRouteName = keyof MainStackParamList;
@@ -33,3 +38,6 @@ export type FriendProfileProps = NativeStackScreenProps<MainStackParamList, 'Fri
 export type UploadScreenProps = NativeStackScreenProps<MainStackParamList, 'UploadScreen'>;
 export type StatusScreenProps = NativeStackScreenProps<MainStackParamList, 'StatusScreen'>;
 export type ResultScreenProps = NativeStackScreenProps<MainStackParamList, 'ResultScreen'>;
+export type InboxScreenProps = NativeStackScreenProps<MainStackParamList, 'InboxScreen'>;
+export type ChatScreenProps = NativeStackScreenProps<MainStackParamList, 'ChatScreen'>;
+export type ConnectionsScreenProps = NativeStackScreenProps<MainStackParamList, 'ConnectionsScreen'>;

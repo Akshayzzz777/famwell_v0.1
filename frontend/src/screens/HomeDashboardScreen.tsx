@@ -8,6 +8,7 @@ import { SectionContainer } from '../components/SectionContainer';
 import { useRole } from '../context/RoleContext';
 import { dashboardActions } from '../data/mockData';
 import { useConnections } from '../hooks/useConnections';
+import { useHealthInsights } from '../hooks/useHealthInsights';
 import { mainNavItems } from '../navigation/mainNavItems';
 import type { HomeDashboardProps, MainRouteName } from '../navigation/types';
 import { theme } from '../styles/theme';
@@ -24,6 +25,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
   const insets = useSafeAreaInsets();
   const { currentUser, selectedRole } = useRole();
   const { connections, error, loading } = useConnections();
+  const { data: healthData, loading: healthLoading } = useHealthInsights();
 
   const navItems = mainNavItems.map((item) => {
     if (item.route === 'FamilyProfileScreen' && selectedRole === 'DOCTOR') {
@@ -57,9 +59,13 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
             <Text style={styles.heroTitle}>Hello, {greeting}</Text>
             <Text style={styles.heroSubtitle}>{currentUser?.healthId ? `Health ID: ${currentUser.healthId}` : 'Role-gated access is active for this session'}</Text>
           </View>
-          <View style={styles.heroAction}>
-            <Text style={styles.heroActionLabel}>{roleLabel.slice(0, 2).toUpperCase()}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.heroAction}
+            activeOpacity={0.85}
+            onPress={() => handleNavigate('InboxScreen')}
+          >
+            <Text style={styles.heroActionLabel}>IN</Text>
+          </TouchableOpacity>
         </View>
 
         <SectionContainer title="Family Members">
@@ -83,6 +89,9 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
                 ) : null}
                 {loading ? <Text style={styles.inlineNotice}>Loading connections...</Text> : null}
               </View>
+              <TouchableOpacity activeOpacity={0.92} onPress={() => handleNavigate('ConnectionsScreen')} style={{ marginTop: 8 }}>
+                <Text style={{ ...theme.typography.label, color: theme.colors.brand.sky700 }}>Manage Connections →</Text>
+              </TouchableOpacity>
               {error ? <Text style={styles.inlineError}>{error.message}</Text> : null}
             </>
           ) : (
@@ -133,7 +142,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
 
         <Card style={styles.statusCard}>
           <View style={styles.statusHeader}>
-            <Text style={styles.statusTitle}>Session Status</Text>
+            <Text style={styles.statusTitle}>Health Score</Text>
             <View style={styles.livePill}>
               <Text style={styles.livePillText}>{roleLabel}</Text>
             </View>
@@ -141,11 +150,11 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
 
           <View style={styles.statusBody}>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>OK</Text>
+              <Text style={styles.statusBadgeText}>{healthLoading ? '...' : healthData?.health_score != null ? healthData.health_score : '--'}</Text>
             </View>
             <View>
               <Text style={styles.statusSubtitle}>{currentUser?.email || 'Authenticated session active'}</Text>
-              <Text style={styles.statusScore}>{currentUser?.healthId || 'Session ready'}</Text>
+              <Text style={styles.statusScore}>{healthData?.insights?.[0] || currentUser?.healthId || 'Upload a report to get insights'}</Text>
             </View>
           </View>
         </Card>

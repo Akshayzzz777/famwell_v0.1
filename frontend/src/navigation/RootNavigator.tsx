@@ -6,9 +6,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { DevPanel } from '../components/DevPanel';
 import { RoleProvider, useRole } from '../context/RoleContext';
+import { ChatScreen } from '../screens/ChatScreen';
+import { ConnectionsScreen } from '../screens/ConnectionsScreen';
 import { FamilyProfileScreen } from '../screens/FamilyProfileScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { HomeDashboardScreen } from '../screens/HomeDashboardScreen';
+import { InboxScreen } from '../screens/InboxScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { SignInScreen } from '../screens/SignInScreen';
@@ -56,6 +59,9 @@ function MainStackNavigator() {
       <MainStack.Screen component={UploadScreen} name="UploadScreen" />
       <MainStack.Screen component={StatusScreen} name="StatusScreen" />
       <MainStack.Screen component={ResultScreen} name="ResultScreen" />
+      <MainStack.Screen component={InboxScreen} name="InboxScreen" />
+      <MainStack.Screen component={ChatScreen} name="ChatScreen" />
+      <MainStack.Screen component={ConnectionsScreen} name="ConnectionsScreen" />
     </MainStack.Navigator>
   );
 }

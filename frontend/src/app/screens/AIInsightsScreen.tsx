@@ -1,72 +1,77 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 import { BottomNav } from '../components/Layout';
-import { ErrorCard, LoadingCard } from '../components/Feedback';
-import { fetchInsights, type ApiFailure, type InsightsPayload } from '../lib/api';
+import { ErrorCard } from '../components/Feedback';
+import { InsightsSkeleton } from '../components/Skeleton';
+import { type MetricDetail } from '../lib/api';
 import { theme } from '../lib/theme';
 import { useApp } from '../state/AppContext';
+import { useHealthData } from '../hooks/useHealthData';
 import type { AIInsightsProps } from '../navigation';
 
-const WEEK_BARS = [0.46, 0.62, 0.58, 0.82, 0.74, 0.46, 0.9];
+const DEFAULT_BARS = [0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3];
 
 export function AIInsightsScreen({ navigation }: AIInsightsProps) {
   const { currentUser, selectedRole } = useApp();
   const insets = useSafeAreaInsets();
-  const [insights, setInsights] = useState<InsightsPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ApiFailure | null>(null);
+  const { data: analysis, isLoading: loading, error: queryError, refetch } = useHealthData();
 
-  const loadInsights = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const payload = await fetchInsights(selectedRole);
-      setInsights(payload);
-    } catch (failure) {
-      setError(failure as ApiFailure);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedRole]);
+  const error = queryError ? { message: (queryError as Error).message } : null;
+  const loadInsights = refetch;
 
-  useFocusEffect(
-    useCallback(() => {
-      loadInsights();
-    }, [loadInsights])
-  );
+  const scoreDisplay = analysis?.health_score != null ? `${analysis.health_score}/100` : '--/100';
+  const stressScore = analysis?.stress_score;
 
-  const cards = useMemo(
-    () => [
-      {
-        title: 'Blood Pressure improved',
-        subtitle: 'Your BP has stabilized in the healthy range this week. Keep up the consistent sleep schedule!',
-        tag: 'Health Milestone',
-        accent: theme.colors.primary,
+  const weekBars = useMemo(() => {
+    if (!analysis?.health_score) return DEFAULT_BARS;
+    const base = analysis.health_score / 100;
+    return DEFAULT_BARS.map((_, i) => Math.max(0.15, Math.min(1, base + (i - 3) * 0.06)));
+  }, [analysis?.health_score]);
+
+  function metricString(key: string): string {
+    if (!analysis?.metrics) return '--';
+    const m = analysis.metrics[key];
+    if (!m) return '--';
+    if (typeof m === 'string' || typeof m === 'number') return String(m);
+    const detail = m as MetricDetail;
+    const unit = detail.unit ? ` ${detail.unit}` : '';
+    return `${detail.value}${unit}`;
+  }
+
+  const bpDisplay = metricString('blood_pressure') !== '--'
+    ? metricString('blood_pressure')
+    : metricString('systolic_bp') !== '--'
+      ? `${metricString('systolic_bp')}/${metricString('diastolic_bp')}`
+      : '--';
+
+  const cards = useMemo(() => {
+    const insightItems = analysis?.insights ?? [];
+    const recItems = analysis?.recommendations ?? [];
+    const all = [
+      ...insightItems.map((text, i) => ({
+        title: text.length > 40 ? text.slice(0, 40) + '...' : text,
+        subtitle: text,
+        tag: 'Insight',
+        accent: i === 0 ? theme.colors.primary : '#4A90E2',
         badge: 'Details',
-      },
-      {
-        title: 'Stay Hydrated',
-        subtitle: "You've only had 4 glasses today. Aim for 8 to keep your energy high!",
-        tag: 'Daily Goal',
-        accent: '#4A90E2',
-        badge: 'Log Water',
-        stripe: true,
-      },
-      {
-        title: 'Time for a light walk',
-        subtitle: 'Your recovery score is high. A 15-minute evening stroll would be perfect today.',
-        tag: 'Active Recovery',
+        stripe: i % 2 === 1,
+        pill: false,
+      })),
+      ...recItems.map((text) => ({
+        title: text.length > 40 ? text.slice(0, 40) + '...' : text,
+        subtitle: text,
+        tag: 'Recommendation',
         accent: '#D97706',
-        badge: 'Plan walk',
+        badge: 'Action',
+        stripe: false,
         pill: true,
-      },
-    ],
-    []
-  );
+      })),
+    ];
+    return all.slice(0, 5);
+  }, [analysis?.insights, analysis?.recommendations]);
 
   const topBarHeight = insets.top + 74;
 
@@ -96,29 +101,48 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
           <Text style={styles.heroTitle}>Smart Health Insights</Text>
         </View>
 
-        {loading ? <LoadingCard label="Loading AI insights..." /> : null}
+        {loading ? <InsightsSkeleton /> : null}
         {error ? <ErrorCard message={error.message} onRetry={loadInsights} title="Insights unavailable" /> : null}
 
-        {!loading && !error ? (
+        {!loading && !error && !analysis?.health_score ? (
+          <View style={styles.chartCard}>
+            <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+              <Ionicons name="document-text-outline" size={48} color={theme.colors.textMuted} />
+              <Text style={[styles.chartTitle, { marginTop: 16, textAlign: 'center' }]}>No Health Data Yet</Text>
+              <Text style={[styles.chartLabel, { marginTop: 8, textAlign: 'center', fontSize: 13, lineHeight: 18 }]}>
+                Upload a medical report PDF to get AI-powered health insights, scores, and personalized recommendations.
+              </Text>
+              <Pressable
+                style={[styles.chatButton, { marginTop: 20, paddingHorizontal: 24, paddingVertical: 10 }]}
+                onPress={() => navigation.navigate('UploadDocuments')}
+              >
+                <Text style={styles.chatButtonText}>Upload Report</Text>
+                <Ionicons color={theme.colors.white} name="cloud-upload-outline" size={16} />
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {!loading && !error && analysis?.health_score ? (
           <>
             <View style={styles.chartCard}>
               <View style={styles.chartHeader}>
                 <Text style={styles.chartTitle}>Weekly Health Score</Text>
                 <View style={styles.scoreContainer}>
-                  <Text style={styles.chartScore}>84/100</Text>
+                  <Text style={styles.chartScore}>{scoreDisplay}</Text>
                   <Ionicons name="analytics-outline" size={18} style={styles.chartIcon} />
                 </View>
               </View>
 
               <View style={styles.chartBars}>
-                {WEEK_BARS.map((level, idx) => (
+                {weekBars.map((level, idx) => (
                   <View key={idx} style={styles.chartBarTrack}>
                     <View
                       style={[
                         styles.chartBar,
                         {
                           height: `${Math.round(level * 100)}%`,
-                          backgroundColor: idx === WEEK_BARS.length - 1 ? theme.colors.primary : 'rgba(47,127,49,0.2)',
+                          backgroundColor: idx === weekBars.length - 1 ? theme.colors.primary : 'rgba(47,127,49,0.2)',
                         },
                       ]}
                     />
@@ -138,13 +162,25 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
               <View style={styles.metricRow}>
                 <MaterialIcons color={theme.colors.primary} name="favorite" size={20} />
                 <Text style={styles.metricValue}>
-                  118/75 <Text style={styles.metricUnit}>mmHg</Text>
+                  {bpDisplay} {bpDisplay !== '--' ? <Text style={styles.metricUnit}>mmHg</Text> : null}
                 </Text>
                 <Pressable style={styles.chatButton} onPress={() => navigation.navigate('ConsultationChat')}>
                   <Text style={styles.chatButtonText}>AI Chat</Text>
                   <Ionicons color={theme.colors.white} name="chatbubble-ellipses" size={16} />
                 </Pressable>
               </View>
+            </View>
+
+            <View style={styles.stressCard}>
+              <View style={styles.stressHeader}>
+                <Ionicons name="pulse-outline" size={18} color={stressScore != null && stressScore > 60 ? '#E34B55' : stressScore != null && stressScore > 30 ? '#D97706' : theme.colors.primary} />
+                <Text style={styles.stressTitle}>Stress Score</Text>
+              </View>
+              <Text style={styles.stressScore}>{stressScore != null ? stressScore : '--'}<Text style={styles.stressUnit}>/100</Text></Text>
+              <View style={styles.stressBarTrack}>
+                <View style={[styles.stressBarFill, { width: `${stressScore ?? 0}%`, backgroundColor: stressScore != null && stressScore > 60 ? '#E34B55' : stressScore != null && stressScore > 30 ? '#D97706' : theme.colors.primary }]} />
+              </View>
+              <Text style={styles.stressLabel}>{stressScore != null ? (stressScore <= 30 ? 'Low stress — keep it up!' : stressScore <= 60 ? 'Moderate stress — consider relaxation techniques.' : 'High stress — prioritize self-care.') : 'Upload a report to see your stress level.'}</Text>
             </View>
 
             {cards.map((card, idx) => (
@@ -324,6 +360,51 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+  },
+  stressCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(47,127,49,0.08)',
+  },
+  stressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  stressTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F170F',
+  },
+  stressScore: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#0F170F',
+    marginBottom: 8,
+  },
+  stressUnit: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#637068',
+  },
+  stressBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    marginBottom: 8,
+  },
+  stressBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  stressLabel: {
+    fontSize: 12,
+    color: '#637068',
+    lineHeight: 16,
   },
   metricRow: {
     flexDirection: 'row',

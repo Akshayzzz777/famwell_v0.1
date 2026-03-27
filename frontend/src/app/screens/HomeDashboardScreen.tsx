@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,7 +12,7 @@ import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav } from '../components/Layout';
-import { computeHealthScore, formatDate, initialLetters, titleCase } from '../lib/format';
+import { formatDate, initialLetters, titleCase } from '../lib/format';
 import {
   healthCheck,
   fetchConnections,
@@ -22,10 +22,13 @@ import {
   type ConnectionItem,
   type HealthPayload,
   type InsightsPayload,
+  type MetricDetail,
   type RecordItem,
 } from '../lib/api';
 import { theme } from '../lib/theme';
 import { useApp } from '../state/AppContext';
+import { useHealthData } from '../hooks/useHealthData';
+import { DashboardSkeleton } from '../components/Skeleton';
 import type { HomeDashboardProps } from '../navigation';
 
 type FamilyMember = {
@@ -49,14 +52,14 @@ type RecentActivityItem = {
   fill: string;
 };
 
-const BAR_LEVELS = [0.5, 0.75, 0.67, 1, 0.8, 0.5, 0.9];
+const EMPTY_BAR_LEVELS = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1];
 const MEMBER_COLORS = [
   { accent: theme.colors.primary, fill: 'rgba(47,127,49,0.12)', border: 'rgba(47,127,49,0.22)' },
   { accent: '#5B7CE2', fill: '#E9F0FF', border: '#D8E3FF' },
   { accent: '#9B6EF3', fill: '#F1E9FF', border: '#E4D6FF' },
   { accent: '#D78838', fill: '#FFF0E2', border: '#F7DEC4' },
 ];
-const FALLBACK_MEMBERS = ['Rajesh', 'Sunita', 'Aarav'];
+
 
 function firstName(value?: string | null) {
   if (!value) {
@@ -72,7 +75,7 @@ function firstName(value?: string | null) {
 }
 
 export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
-  const { activeJob, currentUser, logout, selectedRole, setHealthScore } = useApp();
+  const { activeJob, currentUser, logout, selectedRole } = useApp();
   const insets = useSafeAreaInsets();
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [records, setRecords] = useState<RecordItem[]>([]);
@@ -80,6 +83,8 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
   const [insights, setInsights] = useState<InsightsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiFailure | null>(null);
+
+  const { data: healthAnalysis, isLoading: isHealthLoading, error: healthError, refetch: refetchHealth } = useHealthData();
 
   const loadDashboard = useCallback(async () => {
     if (!selectedRole) {
@@ -114,20 +119,8 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
     }, [loadDashboard])
   );
 
-  const healthScore = useMemo(
-    () =>
-      computeHealthScore({
-        recordsCount: records.length,
-        connectionsCount: connections.length,
-        hasInsights: Boolean(insights?.message),
-        apiHealthy: health?.status === 'healthy',
-      }),
-    [connections.length, health?.status, insights?.message, records.length]
-  );
-
-  useEffect(() => {
-    setHealthScore(healthScore);
-  }, [healthScore, setHealthScore]);
+  const displayScore = healthAnalysis?.health_score;
+  const stressScore = healthAnalysis?.stress_score;
 
   const familyMembers = useMemo<FamilyMember[]>(() => {
     const seeds = [
@@ -149,12 +142,11 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
     ];
 
     while (seeds.length < 4) {
-      const fallbackName = FALLBACK_MEMBERS[seeds.length - 1] || `Member ${seeds.length}`;
       seeds.push({
-        key: `fallback-${seeds.length}`,
-        name: fallbackName,
-        shortLabel: fallbackName,
-        initial: fallbackName.charAt(0).toUpperCase(),
+        key: `empty-${seeds.length}`,
+        name: 'Add',
+        shortLabel: 'Add',
+        initial: '+',
         active: false,
       });
     }
@@ -208,7 +200,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
   const recentActivity = useMemo<RecentActivityItem[]>(() => {
     const lastConnection = connections[0];
     const lastRecord = records[0];
-    const reportLabel = activeJob?.fileName || (lastRecord ? titleCase(lastRecord.record_type) : 'Blood Test Results');
+    const reportLabel = activeJob?.fileName || (lastRecord ? titleCase(lastRecord.record_type) : 'No reports yet');
     const recordDate = formatDate(lastRecord?.updated_at || lastRecord?.created_at);
 
     return [
@@ -217,7 +209,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
         title: 'Last consultation',
         detail: lastConnection
           ? `${firstName(lastConnection.user.full_name || lastConnection.user.email)} � ${formatDate(lastConnection.created_at)}`
-          : 'Dr. Sarah Johnson � 2 days ago',
+          : 'No consultations yet',
         icon: 'medical-services',
         family: 'MaterialIcons',
         accent: '#3B82F6',
@@ -235,7 +227,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
       {
         key: 'prescription',
         title: 'Prescription update',
-        detail: insights?.message ? `${insights.message.slice(0, 26)}${insights.message.length > 26 ? '...' : ''}` : 'Vitamin D3 � 3 days ago',
+        detail: insights?.message ? `${insights.message.slice(0, 26)}${insights.message.length > 26 ? '...' : ''}` : 'No prescription data',
         icon: 'pill',
         family: 'MaterialCommunityIcons',
         accent: '#D97706',
@@ -291,28 +283,36 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
           ))}
         </ScrollView>
 
+        {isHealthLoading && !healthAnalysis ? (
+          <DashboardSkeleton />
+        ) : (
+        <>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Weekly Health Score</Text>
-            <Text style={styles.scoreText}>{healthScore}/100</Text>
+            <Text style={styles.scoreText}>{displayScore != null ? `${displayScore}/100` : '--'}</Text>
           </View>
           <View style={styles.chartRow}>
-            {BAR_LEVELS.map((level, index) => {
-              const active = index === BAR_LEVELS.length - 1;
-              return (
-                <View key={`bar-${index}`} style={styles.chartBarTrack}>
-                  <View
-                    style={[
-                      styles.chartBar,
-                      {
-                        height: `${Math.round(level * 100)}%`,
-                        backgroundColor: active ? theme.colors.primary : 'rgba(47,127,49,0.2)',
-                      },
-                    ]}
-                  />
-                </View>
-              );
-            })}
+            {(() => {
+              const base = displayScore != null ? displayScore / 100 : 0;
+              const bars = EMPTY_BAR_LEVELS.map((_, i) => Math.max(0.1, Math.min(1, base > 0 ? base + (i - 3) * 0.06 : 0.1)));
+              return bars.map((level, index) => {
+                const active = index === bars.length - 1;
+                return (
+                  <View key={`bar-${index}`} style={styles.chartBarTrack}>
+                    <View
+                      style={[
+                        styles.chartBar,
+                        {
+                          height: `${Math.round(level * 100)}%`,
+                          backgroundColor: active ? theme.colors.primary : 'rgba(47,127,49,0.2)',
+                        },
+                      ]}
+                    />
+                  </View>
+                );
+              });
+            })()}
           </View>
           <View style={styles.chartLabels}>
             {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((label) => (
@@ -325,32 +325,45 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
           <View style={styles.summaryHeader}>
             <Text style={styles.summaryTitle}>Health Summary</Text>
             <View style={styles.liveBadge}>
-              <Text style={styles.liveBadgeText}>LIVE</Text>
+              <Text style={styles.liveBadgeText}>{displayScore != null ? 'LIVE' : 'NO DATA'}</Text>
             </View>
           </View>
+          {displayScore == null ? (
+            <Pressable onPress={() => navigation.navigate('UploadDocuments')} style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={[styles.metricHint, { fontSize: 13, textAlign: 'center', lineHeight: 18 }]}>
+                Upload a medical report to see your real-time health metrics here.
+              </Text>
+              <Text style={[styles.metricLabel, { color: theme.colors.primary, marginTop: 8, fontSize: 13 }]}>
+                Tap to Upload Report →
+              </Text>
+            </Pressable>
+          ) : (
           <View style={styles.summaryGrid}>
             <View style={styles.metricColumn}>
               <MaterialIcons color="#E34B55" name="favorite" size={18} />
               <Text style={styles.metricLabel}>HEART RATE</Text>
-              <Text style={styles.metricValue}>72 <Text style={styles.metricUnit}>bpm</Text></Text>
-              <Text style={styles.metricHint}>Normal</Text>
+              <Text style={styles.metricValue}>{(() => { const m = healthAnalysis?.metrics?.['heart_rate']; if (!m) return '--'; if (typeof m === 'string' || typeof m === 'number') return String(m); return `${(m as MetricDetail).value}`; })()} <Text style={styles.metricUnit}>bpm</Text></Text>
+              <Text style={styles.metricHint}>{(() => { const m = healthAnalysis?.metrics?.['heart_rate']; if (!m || typeof m === 'string' || typeof m === 'number') return '--'; return (m as MetricDetail).status || '--'; })()}</Text>
             </View>
             <View style={styles.metricDivider} />
             <View style={styles.metricColumn}>
               <MaterialCommunityIcons color="#4A81E1" name="heart-pulse" size={18} />
               <Text style={styles.metricLabel}>BP</Text>
-              <Text style={styles.metricValue}>120/80</Text>
-              <Text style={styles.metricHint}>Stable</Text>
+              <Text style={styles.metricValue}>{(() => { const m = healthAnalysis?.metrics?.['blood_pressure']; if (!m) { const s = healthAnalysis?.metrics?.['systolic_bp']; const d = healthAnalysis?.metrics?.['diastolic_bp']; if (s && d) { const sv = typeof s === 'object' ? (s as MetricDetail).value : s; const dv = typeof d === 'object' ? (d as MetricDetail).value : d; return `${sv}/${dv}`; } return '--'; } if (typeof m === 'string' || typeof m === 'number') return String(m); return `${(m as MetricDetail).value}`; })()}</Text>
+              <Text style={styles.metricHint}>{(() => { const m = healthAnalysis?.metrics?.['blood_pressure'] ?? healthAnalysis?.metrics?.['systolic_bp']; if (!m || typeof m === 'string' || typeof m === 'number') return '--'; return (m as MetricDetail).status || '--'; })()}</Text>
             </View>
             <View style={styles.metricDivider} />
             <View style={styles.metricColumn}>
               <MaterialCommunityIcons color="#DD8A3E" name="brain" size={18} />
               <Text style={styles.metricLabel}>STRESS</Text>
-              <Text style={styles.metricValue}>Low</Text>
-              <Text style={styles.metricHint}>Managed</Text>
+              <Text style={styles.metricValue}>{stressScore != null ? `${stressScore}` : '--'} <Text style={styles.metricUnit}>/100</Text></Text>
+              <Text style={styles.metricHint}>{stressScore != null ? (stressScore <= 30 ? 'Low' : stressScore <= 60 ? 'Moderate' : 'High') : '--'}</Text>
             </View>
           </View>
+          )}
         </View>
+        </>
+        )}
 
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
