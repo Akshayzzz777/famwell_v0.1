@@ -16,7 +16,7 @@ from shared.job_queue import get_queue
 from shared.database import get_db_manager, get_db_session
 from shared.gcs_client import get_gcs_client
 from shared.json_validator import get_json_validator
-from shared.gemini_client import get_gemini_client
+from shared.llm_client import get_llm_client
 from shared.models import Job, ExtractedJSON, LLMResult, JobStatus
 from shared.schemas import ExtractedJSONValidator
 from shared.security import generate_extraction_id, generate_result_id
@@ -46,7 +46,7 @@ class Worker:
         self.db_manager = get_db_manager()
         self.gcs_client = get_gcs_client()
         self.validator = get_json_validator()
-        self.gemini_client = get_gemini_client()
+        self.llm_client = get_llm_client()
 
         # System prompt (fixed business logic)
         self.system_prompt = """You are a document analysis assistant specialized in extracting and 
@@ -194,9 +194,9 @@ Ensure your responses are accurate, concise, and actionable."""
                 extraction_id=extraction_id
             )
 
-            # 4. Merge with system prompt and call Gemini
+            # 4. Merge with system prompt and call Azure OpenAI
             logger.info_with_context(
-                "Sending prompt to Gemini LLM",
+                "Sending prompt to Azure OpenAI",
                 job_id=job_id
             )
 
@@ -205,25 +205,25 @@ Ensure your responses are accurate, concise, and actionable."""
                 self.system_prompt
             )
 
-            gemini_result = self.gemini_client.send_prompt(
+            llm_result = self.llm_client.send_prompt(
                 system_prompt=self.system_prompt,
                 user_prompt=user_prompt,
                 metadata={"job_id": job_id, "user_id": user_id}
             )
 
-            if not gemini_result:
-                raise Exception("Failed to get response from Gemini LLM")
+            if not llm_result:
+                raise Exception("Failed to get response from Azure OpenAI")
 
             logger.info_with_context(
-                "Received response from Gemini",
+                "Received response from Azure OpenAI",
                 job_id=job_id,
-                time_seconds=gemini_result.get("processing_time_seconds")
+                time_seconds=llm_result.get("processing_time_seconds")
             )
 
             # 5. Validate LLM response
             logger.info_with_context("Validating LLM response", job_id=job_id)
             is_valid_response, response_msg, structured_output = self.validator.validate_llm_response(
-                gemini_result.get("response", "")
+                llm_result.get("response", "")
             )
 
             # Store LLM result
@@ -232,11 +232,11 @@ Ensure your responses are accurate, concise, and actionable."""
                 result_id=result_id,
                 job_id=job_id,
                 prompt_sent=user_prompt[:5000],  # Store truncated prompt
-                llm_response=gemini_result.get("response", ""),
+                llm_response=llm_result.get("response", ""),
                 structured_output=structured_output,
-                processing_time_seconds=gemini_result.get("processing_time_seconds", 0),
-                tokens_used=gemini_result.get("tokens_used"),
-                model_used=gemini_result.get("model", settings.gemini_model),
+                processing_time_seconds=llm_result.get("processing_time_seconds", 0),
+                tokens_used=llm_result.get("tokens_used"),
+                model_used=llm_result.get("model", settings.azure_openai_deployment),
                 created_at=datetime.utcnow(),
             )
             session.add(llm_record)
