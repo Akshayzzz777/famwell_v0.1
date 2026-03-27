@@ -278,3 +278,38 @@ class FollowRequest(BaseModel):
         if not re.match(r"^[A-Z]{2}-[A-Z0-9]{4,28}$", normalized):
             raise ValueError("Health ID format is invalid")
         return normalized
+
+
+class FollowActionRequest(BaseModel):
+    """Accept or reject a follow request."""
+    connection_id: str = Field(..., min_length=1, max_length=64)
+    action: str = Field(..., pattern=r"^(accepted|rejected)$")
+
+    @validator("action")
+    def validate_action(cls, value):
+        if value not in ("accepted", "rejected"):
+            raise ValueError("Action must be 'accepted' or 'rejected'")
+        return value
+
+
+class ChatRequest(BaseModel):
+    """Chat message request schema."""
+    message: str = Field(..., min_length=1, max_length=4000)
+    conversation_id: Optional[str] = None
+
+    @validator("message")
+    def validate_message(cls, value):
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Message cannot be empty")
+        return normalized
+
+
+class MedicalRecordUploadResponse(BaseModel):
+    """Medical record upload response."""
+    medical_record_id: str
+    user_id: str
+    file_url: str
+    file_name: str
+    record_type: str
+    upload_date: Optional[str] = None

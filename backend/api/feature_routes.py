@@ -1,9 +1,9 @@
-"""Additional application routes for auth, records, connections, and insights."""
+"""Additional application routes for auth, records, connections, chat, and medical records."""
 
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -16,6 +16,7 @@ from shared.feature_store import (
     ForbiddenError,
     NotFoundError,
     ValidationError,
+    action_connection,
     create_connection,
     create_record,
     create_user,
@@ -24,9 +25,18 @@ from shared.feature_store import (
     fetch_user_profile,
     get_insights_payload,
     list_connections,
+    list_pending_requests,
     list_records,
 )
-from shared.schemas import FollowRequest, LoginRequest, RecordCreateRequest, RegisterRequest, UiRoleSelection
+from shared.schemas import (
+    ChatRequest,
+    FollowActionRequest,
+    FollowRequest,
+    LoginRequest,
+    RecordCreateRequest,
+    RegisterRequest,
+    UiRoleSelection,
+)
 from shared.security import create_jwt_token, hash_password, verify_password
 
 logger = logging.getLogger(__name__)
@@ -184,7 +194,7 @@ async def post_record(
 @router.post("/follow")
 async def follow_user(
     payload: FollowRequest,
-    current_user: Dict[str, Any] = Depends(require_patient),
+    current_user: Dict[str, Any] = Depends(require_user),
 ) -> JSONResponse:
     prisma = get_prisma_client(settings.database_url)
 
@@ -198,8 +208,25 @@ async def follow_user(
         return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@router.post("/follow-action")
+async def follow_action(
+    payload: FollowActionRequest,
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        result = await action_connection(prisma, current_user["user_id"], payload.connection_id, payload.action)
+        return _success(result)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Follow action failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @router.get("/connections")
-async def get_connections(current_user: Dict[str, Any] = Depends(require_patient)) -> JSONResponse:
+async def get_connections(current_user: Dict[str, Any] = Depends(require_user)) -> JSONResponse:
     prisma = get_prisma_client(settings.database_url)
 
     try:
@@ -209,6 +236,20 @@ async def get_connections(current_user: Dict[str, Any] = Depends(require_patient
         return _feature_error_response(error)
     except Exception as error:
         logger.error(f"Fetching connections failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/connections/pending")
+async def get_pending_requests(current_user: Dict[str, Any] = Depends(require_user)) -> JSONResponse:
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        requests = await list_pending_requests(prisma, current_user["user_id"])
+        return _success(requests)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Fetching pending requests failed: {error}", exc_info=True)
         return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -227,4 +268,170 @@ async def get_insights(current_user: Dict[str, Any] = Depends(require_user)) -> 
         return _feature_error_response(error)
     except Exception as error:
         logger.error(f"Fetching insights failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Chat Endpoints ──
+
+
+@router.post("/chat")
+async def post_chat(
+    payload: ChatRequest,
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    from shared.chat_service import chat
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        result = await chat(prisma, current_user["user_id"], payload.message, payload.conversation_id)
+        return _success(result)
+    except Exception as error:
+        logger.error(f"Chat failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/chat/conversations")
+async def get_conversations(current_user: Dict[str, Any] = Depends(require_user)) -> JSONResponse:
+    from shared.chat_service import list_conversations
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        conversations = await list_conversations(prisma, current_user["user_id"])
+        return _success({"conversations": conversations})
+    except Exception as error:
+        logger.error(f"Fetching conversations failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/chat/history/{conversation_id}")
+async def get_chat_history(
+    conversation_id: str,
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    from shared.chat_service import get_conversation_history, get_or_create_conversation
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        # Verify conversation belongs to user
+        conv = await get_or_create_conversation(prisma, current_user["user_id"], conversation_id)
+        if conv["user_id"] != current_user["user_id"]:
+            return _error("Access denied", status.HTTP_403_FORBIDDEN)
+
+        messages = await get_conversation_history(prisma, conversation_id)
+        return _success({"conversation_id": conversation_id, "messages": messages})
+    except Exception as error:
+        logger.error(f"Fetching chat history failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Medical Record Endpoints ──
+
+
+@router.post("/medical-records/upload")
+async def upload_medical_record_endpoint(
+    file: UploadFile = File(...),
+    record_type: str = Form(default="general"),
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    from shared.medical_service import upload_medical_record
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        if not file.filename or not file.filename.lower().endswith(".pdf"):
+            return _error("Only PDF files are accepted.", status.HTTP_400_BAD_REQUEST)
+
+        content = await file.read()
+        if len(content) > settings.max_file_size_bytes:
+            return _error(f"File exceeds maximum size of {settings.max_file_size_mb}MB.", status.HTTP_400_BAD_REQUEST)
+
+        if not content[:5].startswith(b"%PDF"):
+            return _error("Invalid PDF file.", status.HTTP_400_BAD_REQUEST)
+
+        record = await upload_medical_record(
+            prisma,
+            user_id=current_user["user_id"],
+            file_name=file.filename,
+            file_content=content,
+            record_type=record_type,
+        )
+        return _success(record, status_code=status.HTTP_201_CREATED)
+    except Exception as error:
+        logger.error(f"Medical record upload failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/medical-records")
+async def get_medical_records(current_user: Dict[str, Any] = Depends(require_user)) -> JSONResponse:
+    from shared.medical_service import list_medical_records
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        records = await list_medical_records(prisma, current_user["user_id"])
+        return _success({"records": records})
+    except Exception as error:
+        logger.error(f"Fetching medical records failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/medical-records/{record_id}/analyze")
+async def analyze_medical_record_endpoint(
+    record_id: str,
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    from shared.medical_service import analyze_medical_record
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        analysis = await analyze_medical_record(prisma, record_id, current_user["user_id"])
+        return _success(analysis)
+    except ValueError as error:
+        return _error(str(error), status.HTTP_404_NOT_FOUND)
+    except Exception as error:
+        logger.error(f"Medical record analysis failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Health Insights Endpoints ──
+
+
+@router.get("/health-insights/latest")
+async def get_latest_health_insights(
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Get health insights from the user's most recent medical record."""
+    from shared.medical_service import get_health_insights_for_user
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        insights = await get_health_insights_for_user(prisma, current_user["user_id"])
+        return _success(insights)
+    except Exception as error:
+        logger.error(f"Fetching latest health insights failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/health-insights/{record_id}")
+async def get_health_insights(
+    record_id: str,
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Get health insights for a specific medical record."""
+    from shared.medical_service import get_health_insights_for_user
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        insights = await get_health_insights_for_user(prisma, current_user["user_id"], record_id)
+        return _success(insights)
+    except ValueError as error:
+        return _error(str(error), status.HTTP_404_NOT_FOUND)
+    except Exception as error:
+        logger.error(f"Fetching health insights failed: {error}", exc_info=True)
         return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)

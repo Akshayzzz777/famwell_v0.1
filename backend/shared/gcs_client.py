@@ -1,14 +1,68 @@
-"""Google Cloud Storage integration."""
+"""Cloud storage integration — GCS or local-filesystem fallback."""
 
 import io
+import os
+from pathlib import Path
 from typing import Optional, BinaryIO
-from google.cloud import storage
-from google.oauth2 import service_account
 import logging
 
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+
+class LocalStorageClient:
+    """Local filesystem storage fallback for development (no GCS credentials)."""
+
+    def __init__(self):
+        self._root = Path(settings.local_upload_dir)
+        self._root.mkdir(parents=True, exist_ok=True)
+        logger.info("Using LOCAL file storage at %s", self._root.resolve())
+
+    def _resolve(self, path: str) -> Path:
+        dest = self._root / path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        return dest
+
+    def upload_file(self, file_content: bytes, destination_path: str,
+                    content_type: str = "application/pdf",
+                    metadata: Optional[dict] = None) -> bool:
+        try:
+            self._resolve(destination_path).write_bytes(file_content)
+            logger.info("Saved file locally: %s", destination_path)
+            return True
+        except Exception:
+            logger.error("Local save failed: %s", destination_path, exc_info=True)
+            return False
+
+    def download_file(self, source_path: str) -> Optional[bytes]:
+        p = self._resolve(source_path)
+        if p.exists():
+            return p.read_bytes()
+        logger.error("Local file not found: %s", source_path)
+        return None
+
+    def delete_file(self, path: str) -> bool:
+        p = self._resolve(path)
+        if p.exists():
+            p.unlink()
+            return True
+        return False
+
+    def file_exists(self, path: str) -> bool:
+        return self._resolve(path).exists()
+
+    def generate_signed_url(self, path: str, expiration_hours: int = 24,
+                            method: str = "GET") -> Optional[str]:
+        return f"/local-files/{path}"
+
+    def get_file_metadata(self, path: str) -> Optional[dict]:
+        p = self._resolve(path)
+        if not p.exists():
+            return None
+        stat = p.stat()
+        return {"size_bytes": stat.st_size, "content_type": "application/pdf",
+                "updated": None, "metadata": {}}
 
 
 class GCSClient:
@@ -169,13 +223,17 @@ class GCSClient:
             return None
 
 
-# Global GCS client instance
-_gcs_client: Optional[GCSClient] = None
+# Global storage client instance
+_gcs_client = None
 
 
-def get_gcs_client() -> GCSClient:
-    """Get or initialize GCS client (singleton)."""
+def get_gcs_client():
+    """Get or initialize storage client (GCS if configured, else local fallback)."""
     global _gcs_client
     if _gcs_client is None:
-        _gcs_client = GCSClient()
+        if settings.gcs_project_id and settings.gcs_project_id.strip():
+            _gcs_client = GCSClient()
+        else:
+            logger.warning("GCS_PROJECT_ID not set — using local file storage.")
+            _gcs_client = LocalStorageClient()
     return _gcs_client
