@@ -17,7 +17,9 @@ import {
   type AskAiResponse,
   type HealthAnalysis,
   type HistoryEntry,
+  type InsightItem,
   type MetricDetail,
+  type StructuredInsight,
   askAiInsight,
   fetchHealthHistory,
   fetchLatestHealthInsights,
@@ -135,6 +137,9 @@ function TrendChart({
 
 export function StressAnalysisScreen({ navigation, route }: StressAnalysisProps) {
   const parameter = route.params?.parameter ?? 'stress_score';
+  const highlightTitle = route.params?.highlightTitle;
+  const highlightDescription = route.params?.highlightDescription;
+  const highlightTag = route.params?.highlightTag;
   const { selectedRole } = useApp();
   const insets = useSafeAreaInsets();
   const [aiExpanded, setAiExpanded] = useState(false);
@@ -257,6 +262,63 @@ export function StressAnalysisScreen({ navigation, route }: StressAnalysisProps)
   const error = currentError ? { message: (currentError as Error).message } : null;
   const topBarHeight = insets.top + 56;
 
+  // Filter insights / recommendations / risks to those relevant to this parameter
+  // Uses structured `category` field when available; falls back to keyword matching for plain strings
+  const paramKeywords = useMemo(() => {
+    const kw: Record<string, string[]> = {
+      health_score: ['health', 'score', 'overall', 'general'],
+      stress_score: ['stress', 'cortisol', 'anxiety', 'relaxation', 'sleep', 'mental'],
+      heart_rate: ['heart rate', 'pulse', 'bpm', 'heart'],
+      blood_pressure: ['blood pressure', 'bp', 'systolic', 'diastolic', 'hypertension', 'mmhg'],
+      systolic_bp: ['systolic', 'blood pressure', 'bp', 'hypertension'],
+      diastolic_bp: ['diastolic', 'blood pressure', 'bp', 'hypertension'],
+      glucose: ['glucose', 'sugar', 'fasting', 'diabetes', 'hba1c', 'insulin', 'glyc'],
+      cholesterol: ['cholesterol', 'ldl', 'hdl', 'lipid', 'triglyceride', 'statin'],
+      hemoglobin: ['hemoglobin', 'hb', 'anemia', 'iron', 'blood count', 'hematocrit'],
+    };
+    return kw[parameter] ?? [parameter.replace(/_/g, ' ')];
+  }, [parameter]);
+
+  function insightMatchesParameter(item: InsightItem): boolean {
+    // Structured insight: use category field directly
+    if (typeof item === 'object' && 'category' in item) {
+      return item.category === parameter;
+    }
+    // Plain string: fall back to keyword matching
+    const text = typeof item === 'string' ? item : String(item);
+    const lower = text.toLowerCase();
+    return paramKeywords.some((kw) => lower.includes(kw));
+  }
+
+  function getInsightText(item: InsightItem): string {
+    if (typeof item === 'object' && 'description' in item) return item.description;
+    return typeof item === 'string' ? item : String(item);
+  }
+
+  function getInsightId(item: InsightItem, idx: number): string {
+    if (typeof item === 'object' && 'id' in item) return item.id;
+    return `item_${idx}`;
+  }
+
+  const filteredInsights = useMemo(() => {
+    const all = analysis?.insights ?? [];
+    if (parameter === 'health_score') return all; // health_score shows everything
+    return all.filter(insightMatchesParameter);
+  }, [analysis?.insights, paramKeywords, parameter]);
+
+  const filteredRecommendations = useMemo(() => {
+    const all = analysis?.recommendations ?? [];
+    if (parameter === 'health_score') return all;
+    return all.filter(insightMatchesParameter);
+  }, [analysis?.recommendations, paramKeywords, parameter]);
+
+  const filteredRisks = useMemo(() => {
+    const all = analysis?.risks ?? [];
+    if (parameter === 'health_score') return all;
+    const lower = (text: string) => text.toLowerCase();
+    return all.filter((r) => paramKeywords.some((kw) => lower(r).includes(kw)));
+  }, [analysis?.risks, paramKeywords, parameter]);
+
   return (
     <View style={s.screen}>
       {/* Header */}
@@ -353,17 +415,17 @@ export function StressAnalysisScreen({ navigation, route }: StressAnalysisProps)
               </View>
             </View>
 
-            {/* AI Insights from current analysis */}
-            {analysis?.insights && analysis.insights.length > 0 ? (
+            {/* AI Insights filtered for this parameter */}
+            {filteredInsights.length > 0 ? (
               <View style={s.sectionCard}>
                 <View style={s.sectionHeader}>
                   <Ionicons name="bulb-outline" size={18} color={theme.colors.primary} />
-                  <Text style={s.sectionTitle}>AI Insights</Text>
+                  <Text style={s.sectionTitle}>{displayName} Insights</Text>
                 </View>
-                {analysis.insights.map((insight, idx) => (
-                  <View key={idx} style={s.insightRow}>
+                {filteredInsights.map((insight, idx) => (
+                  <View key={getInsightId(insight, idx)} style={s.insightRow}>
                     <View style={s.insightDot} />
-                    <Text style={s.insightText}>{insight}</Text>
+                    <Text style={s.insightText}>{getInsightText(insight)}</Text>
                   </View>
                 ))}
               </View>
@@ -419,19 +481,19 @@ export function StressAnalysisScreen({ navigation, route }: StressAnalysisProps)
               </View>
             ) : null}
 
-            {/* Recommendations */}
-            {analysis?.recommendations && analysis.recommendations.length > 0 ? (
+            {/* Recommendations filtered for this parameter */}
+            {filteredRecommendations.length > 0 ? (
               <View style={s.sectionCard}>
                 <View style={s.sectionHeader}>
                   <Ionicons name="checkmark-circle-outline" size={18} color="#D97706" />
-                  <Text style={s.sectionTitle}>Recommendations</Text>
+                  <Text style={s.sectionTitle}>{displayName} Recommendations</Text>
                 </View>
-                {analysis.recommendations.map((rec, idx) => (
-                  <View key={idx} style={s.recRow}>
+                {filteredRecommendations.map((rec, idx) => (
+                  <View key={getInsightId(rec, idx)} style={s.recRow}>
                     <View style={s.recNumber}>
                       <Text style={s.recNumberText}>{idx + 1}</Text>
                     </View>
-                    <Text style={s.recText}>{rec}</Text>
+                    <Text style={s.recText}>{getInsightText(rec)}</Text>
                   </View>
                 ))}
               </View>
@@ -476,14 +538,14 @@ export function StressAnalysisScreen({ navigation, route }: StressAnalysisProps)
               ) : null}
             </View>
 
-            {/* Risks */}
-            {analysis?.risks && analysis.risks.length > 0 ? (
+            {/* Risks filtered for this parameter */}
+            {filteredRisks.length > 0 ? (
               <View style={[s.sectionCard, { borderColor: '#E34B5520' }]}>
                 <View style={s.sectionHeader}>
                   <Ionicons name="warning-outline" size={18} color="#E34B55" />
-                  <Text style={[s.sectionTitle, { color: '#E34B55' }]}>Risk Factors</Text>
+                  <Text style={[s.sectionTitle, { color: '#E34B55' }]}>{displayName} Risk Factors</Text>
                 </View>
-                {analysis.risks.map((risk, idx) => (
+                {filteredRisks.map((risk, idx) => (
                   <View key={idx} style={s.riskRow}>
                     <Ionicons name="alert-circle" size={14} color="#E34B55" />
                     <Text style={s.riskText}>{risk}</Text>
