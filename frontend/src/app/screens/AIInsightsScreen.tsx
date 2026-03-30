@@ -49,7 +49,9 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
 
   const cards = useMemo(() => {
     const insightItems = analysis?.insights ?? [];
-    const recItems = analysis?.recommendations ?? [];
+    const recItems = analysis?.recommendations?.length
+      ? analysis.recommendations
+      : ['No specific recommendations — keep maintaining a healthy lifestyle.'];
     const all = [
       ...insightItems.map((text, i) => ({
         title: text.length > 40 ? text.slice(0, 40) + '...' : text,
@@ -125,7 +127,7 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
 
         {!loading && !error && analysis?.health_score ? (
           <>
-            <View style={styles.chartCard}>
+            <Pressable style={styles.chartCard} onPress={() => navigation.navigate('StressAnalysis', { parameter: 'health_score' })}>
               <View style={styles.chartHeader}>
                 <Text style={styles.chartTitle}>Weekly Health Score</Text>
                 <View style={styles.scoreContainer}>
@@ -156,7 +158,7 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
                   </Text>
                 ))}
               </View>
-            </View>
+            </Pressable>
 
             <View style={styles.metricCard}>
               <View style={styles.metricRow}>
@@ -164,24 +166,25 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
                 <Text style={styles.metricValue}>
                   {bpDisplay} {bpDisplay !== '--' ? <Text style={styles.metricUnit}>mmHg</Text> : null}
                 </Text>
-                <Pressable style={styles.chatButton} onPress={() => navigation.navigate('ConsultationChat')}>
-                  <Text style={styles.chatButtonText}>AI Chat</Text>
-                  <Ionicons color={theme.colors.white} name="chatbubble-ellipses" size={16} />
+                <Pressable style={styles.chatButton} onPress={() => navigation.navigate('StressAnalysis', { parameter: 'blood_pressure' })}>
+                  <Text style={styles.chatButtonText}>Details</Text>
+                  <Ionicons color={theme.colors.white} name="analytics-outline" size={16} />
                 </Pressable>
               </View>
             </View>
 
-            <View style={styles.stressCard}>
+            <Pressable style={styles.stressCard} onPress={() => navigation.navigate('StressAnalysis', { parameter: 'stress_score' })}>
               <View style={styles.stressHeader}>
                 <Ionicons name="pulse-outline" size={18} color={stressScore != null && stressScore > 60 ? '#E34B55' : stressScore != null && stressScore > 30 ? '#D97706' : theme.colors.primary} />
                 <Text style={styles.stressTitle}>Stress Score</Text>
+                <Ionicons name="chevron-forward" size={16} color={theme.colors.textMuted} style={{ marginLeft: 'auto' }} />
               </View>
               <Text style={styles.stressScore}>{stressScore != null ? stressScore : '--'}<Text style={styles.stressUnit}>/100</Text></Text>
               <View style={styles.stressBarTrack}>
                 <View style={[styles.stressBarFill, { width: `${stressScore ?? 0}%`, backgroundColor: stressScore != null && stressScore > 60 ? '#E34B55' : stressScore != null && stressScore > 30 ? '#D97706' : theme.colors.primary }]} />
               </View>
               <Text style={styles.stressLabel}>{stressScore != null ? (stressScore <= 30 ? 'Low stress — keep it up!' : stressScore <= 60 ? 'Moderate stress — consider relaxation techniques.' : 'High stress — prioritize self-care.') : 'Upload a report to see your stress level.'}</Text>
-            </View>
+            </Pressable>
 
             {cards.map((card, idx) => (
               <View
@@ -202,7 +205,10 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
                   <Text style={styles.cardTitle}>{card.title}</Text>
                   <View style={styles.cardFooter}>
                     <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
-                    <Pressable style={[styles.cardChip, { backgroundColor: card.accent }]}>
+                    <Pressable
+                      style={[styles.cardChip, { backgroundColor: card.accent }]}
+                      onPress={() => navigation.navigate('StressAnalysis', { parameter: card.tag === 'Insight' ? 'health_score' : 'stress_score' })}
+                    >
                       <Text style={styles.cardChipText}>{card.badge}</Text>
                     </Pressable>
                   </View>
