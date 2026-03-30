@@ -97,8 +97,22 @@ Return this exact structure:
     }}
   }},
   "risks": ["<risk1>", "<risk2>"],
-  "insights": ["<insight1>", "<insight2>"],
-  "recommendations": ["<rec1>", "<rec2>"]
+  "insights": [
+    {{
+      "id": "<unique_snake_case_id e.g. elevated_glucose>",
+      "title": "<short title, max 50 chars>",
+      "description": "<detailed explanation>",
+      "category": "<one of: heart_rate, blood_pressure, glucose, cholesterol, hemoglobin, stress_score, health_score, or the metric key it relates to>"
+    }}
+  ],
+  "recommendations": [
+    {{
+      "id": "<unique_snake_case_id e.g. reduce_sodium>",
+      "title": "<short title, max 50 chars>",
+      "description": "<detailed recommendation>",
+      "category": "<same category options as insights>"
+    }}
+  ]
 }}
 """
 
