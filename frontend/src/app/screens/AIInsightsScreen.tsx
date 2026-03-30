@@ -6,7 +6,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BottomNav } from '../components/Layout';
 import { ErrorCard } from '../components/Feedback';
 import { InsightsSkeleton } from '../components/Skeleton';
-import { type MetricDetail } from '../lib/api';
+import { type MetricDetail, type InsightItem, type StructuredInsight } from '../lib/api';
 import { theme } from '../lib/theme';
 import { useApp } from '../state/AppContext';
 import { useHealthData } from '../hooks/useHealthData';
@@ -41,35 +41,110 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
     return `${detail.value}${unit}`;
   }
 
+  function metricDetail(key: string): MetricDetail | null {
+    if (!analysis?.metrics) return null;
+    const m = analysis.metrics[key];
+    if (!m) return null;
+    if (typeof m === 'object' && 'value' in m) return m as MetricDetail;
+    return null;
+  }
+
   const bpDisplay = metricString('blood_pressure') !== '--'
     ? metricString('blood_pressure')
     : metricString('systolic_bp') !== '--'
       ? `${metricString('systolic_bp')}/${metricString('diastolic_bp')}`
       : '--';
 
+  // Map insight/recommendation text to a relevant parameter (fallback for plain strings)
+  const PARAM_KEYWORDS: [string, string[]][] = [
+    ['glucose', ['glucose', 'sugar', 'fasting', 'diabetes', 'hba1c', 'insulin', 'glyc']],
+    ['cholesterol', ['cholesterol', 'ldl', 'hdl', 'lipid', 'triglyceride', 'statin']],
+    ['hemoglobin', ['hemoglobin', 'hb', 'anemia', 'iron', 'blood count', 'hematocrit']],
+    ['heart_rate', ['heart rate', 'pulse', 'bpm', 'tachycardia', 'bradycardia']],
+    ['blood_pressure', ['blood pressure', 'bp', 'systolic', 'diastolic', 'hypertension', 'mmhg']],
+    ['stress_score', ['stress', 'cortisol', 'anxiety', 'relaxation', 'sleep', 'mental']],
+  ];
+
+  function detectParameterFromText(text: string): string {
+    const lower = text.toLowerCase();
+    for (const [param, keywords] of PARAM_KEYWORDS) {
+      if (keywords.some((kw) => lower.includes(kw))) return param;
+    }
+    return 'health_score';
+  }
+
+  // Normalize insight items: structured objects pass through, plain strings get keyword-detected category
+  function normalizeInsight(item: InsightItem, fallbackId: string): StructuredInsight {
+    if (typeof item === 'object' && 'id' in item && 'category' in item) {
+      return item;
+    }
+    const text = typeof item === 'string' ? item : String(item);
+    return {
+      id: fallbackId,
+      title: text.length > 50 ? text.slice(0, 50) + '...' : text,
+      description: text,
+      category: detectParameterFromText(text),
+    };
+  }
+
+  // Build individual metric cards from analysis.metrics
+  const metricCards = useMemo(() => {
+    if (!analysis?.metrics) return [];
+    const METRIC_LABELS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
+      heart_rate: { label: 'Heart Rate', icon: 'heart-outline' },
+      glucose: { label: 'Fasting Glucose', icon: 'water-outline' },
+      cholesterol: { label: 'Cholesterol', icon: 'fitness-outline' },
+      hemoglobin: { label: 'Hemoglobin', icon: 'flask-outline' },
+    };
+    const skipKeys = new Set(['blood_pressure', 'systolic_bp', 'diastolic_bp']);
+    return Object.keys(analysis.metrics)
+      .filter((key) => !skipKeys.has(key))
+      .map((key) => {
+        const d = metricDetail(key);
+        if (!d || d.value == null || d.value === '' || d.value === 'null') return null;
+        const info = METRIC_LABELS[key] ?? {
+          label: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          icon: 'analytics-outline' as keyof typeof Ionicons.glyphMap,
+        };
+        const sColor =
+          d.status === 'abnormal' ? '#E34B55' : d.status === 'borderline' ? '#D97706' : theme.colors.primary;
+        return { key, ...info, detail: d, statusColor: sColor };
+      })
+      .filter(Boolean) as { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; detail: MetricDetail; statusColor: string }[];
+  }, [analysis?.metrics]);
+
   const cards = useMemo(() => {
-    const insightItems = analysis?.insights ?? [];
-    const recItems = analysis?.recommendations?.length
+    const insightItems = (analysis?.insights ?? []).map((item, i) =>
+      normalizeInsight(item, `insight_${i}`),
+    );
+    const recItemsRaw = analysis?.recommendations?.length
       ? analysis.recommendations
       : ['No specific recommendations — keep maintaining a healthy lifestyle.'];
+    const recItems = recItemsRaw.map((item, i) =>
+      normalizeInsight(item, `rec_${i}`),
+    );
     const all = [
-      ...insightItems.map((text, i) => ({
-        title: text.length > 40 ? text.slice(0, 40) + '...' : text,
-        subtitle: text,
+      ...insightItems.map((si, i) => ({
+        id: si.id,
+        title: si.title,
+        subtitle: si.description,
         tag: 'Insight',
         accent: i === 0 ? theme.colors.primary : '#4A90E2',
         badge: 'Details',
         stripe: i % 2 === 1,
         pill: false,
+        parameter: si.category,
       })),
-      ...recItems.map((text) => ({
-        title: text.length > 40 ? text.slice(0, 40) + '...' : text,
-        subtitle: text,
+      ...recItems.map((si) => ({
+        id: si.id,
+        title: si.title,
+        subtitle: si.description,
         tag: 'Recommendation',
         accent: '#D97706',
         badge: 'Action',
         stripe: false,
         pill: true,
+        parameter: si.category,
       })),
     ];
     return all.slice(0, 5);
@@ -186,17 +261,48 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
               <Text style={styles.stressLabel}>{stressScore != null ? (stressScore <= 30 ? 'Low stress — keep it up!' : stressScore <= 60 ? 'Moderate stress — consider relaxation techniques.' : 'High stress — prioritize self-care.') : 'Upload a report to see your stress level.'}</Text>
             </Pressable>
 
-            {cards.map((card, idx) => (
-              <View
-                key={idx}
-                style={[styles.insightCard, card.stripe && styles.insightStripe, card.pill && styles.insightPill]}
-              >
-                {idx === 0 || idx === 1 ? (
-                  <View style={styles.banner}>
-                    <MaterialIcons color={card.accent} name={idx === 0 ? 'favorite' : 'water-drop'} size={22} />
-                  </View>
-                ) : null}
+            {/* Individual Metric Cards */}
+            {metricCards.length > 0 ? (
+              <View style={styles.metricsSection}>
+                <Text style={styles.metricsSectionTitle}>Health Metrics</Text>
+                {metricCards.map((mc) => (
+                  <Pressable
+                    key={mc.key}
+                    style={styles.metricCardRow}
+                    onPress={() => navigation.navigate('StressAnalysis', { parameter: mc.key })}
+                  >
+                    <View style={[styles.metricIconCircle, { backgroundColor: `${mc.statusColor}15` }]}>
+                      <Ionicons name={mc.icon} size={18} color={mc.statusColor} />
+                    </View>
+                    <View style={styles.metricCardInfo}>
+                      <Text style={styles.metricCardLabel}>{mc.label}</Text>
+                      <Text style={styles.metricCardValue}>
+                        {String(mc.detail.value)}
+                        {mc.detail.unit ? <Text style={styles.metricCardUnit}> {mc.detail.unit}</Text> : null}
+                      </Text>
+                    </View>
+                    <View style={[styles.metricStatusBadge, { backgroundColor: `${mc.statusColor}15` }]}>
+                      <Text style={[styles.metricStatusText, { color: mc.statusColor }]}>
+                        {mc.detail.status === 'abnormal' ? 'Abnormal' : mc.detail.status === 'borderline' ? 'Borderline' : 'Normal'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={theme.colors.textMuted} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
 
+            {cards.map((card) => (
+              <Pressable
+                key={card.id}
+                style={[styles.insightCard, card.stripe && styles.insightStripe, card.pill && styles.insightPill]}
+                onPress={() => navigation.navigate('StressAnalysis', {
+                  parameter: card.parameter,
+                  highlightTitle: card.title,
+                  highlightDescription: card.subtitle,
+                  highlightTag: card.tag,
+                })}
+              >
                 <View style={styles.cardBody}>
                   <View style={styles.cardMetaRow}>
                     <MaterialIcons color={card.accent} name="stars" size={14} />
@@ -205,15 +311,14 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
                   <Text style={styles.cardTitle}>{card.title}</Text>
                   <View style={styles.cardFooter}>
                     <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
-                    <Pressable
+                    <View
                       style={[styles.cardChip, { backgroundColor: card.accent }]}
-                      onPress={() => navigation.navigate('StressAnalysis', { parameter: card.tag === 'Insight' ? 'health_score' : 'stress_score' })}
                     >
                       <Text style={styles.cardChipText}>{card.badge}</Text>
-                    </Pressable>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </>
         ) : null}
@@ -511,6 +616,61 @@ const styles = StyleSheet.create({
   cardChipText: {
     color: theme.colors.white,
     fontSize: 13,
+    fontWeight: '700',
+  },
+  metricsSection: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  metricsSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F170F',
+    marginBottom: 4,
+  },
+  metricCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(47,127,49,0.08)',
+  },
+  metricIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricCardInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  metricCardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F170F',
+  },
+  metricCardValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F170F',
+  },
+  metricCardUnit: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#637068',
+  },
+  metricStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  metricStatusText: {
+    fontSize: 11,
     fontWeight: '700',
   },
 });
