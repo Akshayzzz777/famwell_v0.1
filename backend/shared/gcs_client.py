@@ -228,12 +228,8 @@ _gcs_client = None
 
 
 def get_gcs_client():
-    """Get or initialize storage client (GCS if configured, else local fallback)."""
+    """Get or initialize storage client — always uses local filesystem."""
     global _gcs_client
     if _gcs_client is None:
-        if settings.gcs_project_id and settings.gcs_project_id.strip():
-            _gcs_client = GCSClient()
-        else:
-            logger.warning("GCS_PROJECT_ID not set — using local file storage.")
-            _gcs_client = LocalStorageClient()
+        _gcs_client = LocalStorageClient()
     return _gcs_client
