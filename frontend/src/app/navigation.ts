@@ -25,7 +25,12 @@ export type MainStackParamList = {
   FamilyProfiles: undefined;
   FriendsAndFamily: undefined;
   AIInsights: undefined;
-  StressAnalysis: { parameter?: string } | undefined;
+  StressAnalysis: {
+    parameter?: string;
+    highlightTitle?: string;
+    highlightDescription?: string;
+    highlightTag?: string;
+  } | undefined;
 };
 
 export type MainRouteName = keyof MainStackParamList;

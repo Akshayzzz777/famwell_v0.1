@@ -117,13 +117,22 @@ export type MetricDetail = {
   status?: 'normal' | 'borderline' | 'abnormal' | 'slightly elevated' | string;
 };
 
+export type StructuredInsight = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+};
+
+export type InsightItem = string | StructuredInsight;
+
 export type HealthAnalysis = {
   health_score: number | null;
   stress_score: number | null;
   metrics: Record<string, MetricDetail | string | number>;
   risks: string[];
-  insights: string[];
-  recommendations: string[];
+  insights: InsightItem[];
+  recommendations: InsightItem[];
 };
 
 export type HealthPayload = {
@@ -200,7 +209,7 @@ function dedupeUrls(urls: string[]) {
   return [...new Set(urls)];
 }
 
-const PROJECT_DEFAULT_API_URLS = ['http://10.10.36.120:8000'];
+const PROJECT_DEFAULT_API_URLS = ['http://10.101.201.74:8000'];
 
 function getExpoConfiguredApiUrl() {
   const expoConfig = Constants.expoConfig as { extra?: { apiUrl?: string } } | null;
