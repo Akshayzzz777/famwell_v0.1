@@ -34,6 +34,17 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "unknown"
         request.state.client_ip = client_ip
 
+        # Log incoming request details
+        query_str = str(request.url.query) if request.url.query else ""
+        logger.info(
+            "→ %s %s%s - client=%s, request_id=%s",
+            request.method,
+            request.url.path,
+            f"?{query_str}" if query_str else "",
+            client_ip,
+            request_id,
+        )
+
         # Call next handler
         response = await call_next(request)
 
@@ -46,8 +57,13 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         # Log request
         logger.info(
-            f"{request.method} {request.url.path} - {response.status_code} "
-            f"({duration_ms:.2f}ms) - {client_ip}"
+            "← %s %s - %s (%0.2fms) - %s - request_id=%s",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+            client_ip,
+            request_id,
         )
 
         return response

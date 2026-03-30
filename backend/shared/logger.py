@@ -47,9 +47,13 @@ def setup_logging():
     root_logger.setLevel(settings.api_log_level)
 
     # Console handler with JSON formatter
-    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setFormatter(JSONFormatter())
     root_logger.addHandler(console_handler)
+
+    # Suppress noisy Prisma engine logs (httpx requests to localhost query engine)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     return root_logger
 

@@ -68,14 +68,17 @@ class Settings(BaseSettings):
     # Security
     enable_https: bool = Field(default=False, env="ENABLE_HTTPS")
     cors_origins: str = Field(
-        default="http://localhost:3000,http://localhost:8000,http://localhost:8081,http://127.0.0.1:8081,http://127.0.0.1:8000",
+        default="*",
         env="CORS_ORIGINS"
     )
 
     @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS origins as list."""
-        return [origin.strip() for origin in self.cors_origins.split(",")]
+        origins = [origin.strip() for origin in self.cors_origins.split(",")]
+        if "*" in origins:
+            return ["*"]
+        return origins
 
     @property
     def allowed_file_types_list(self) -> List[str]:
