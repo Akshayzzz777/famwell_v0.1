@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -86,6 +86,8 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
 
   const { data: healthAnalysis, isLoading: isHealthLoading, error: healthError, refetch: refetchHealth } = useHealthData();
 
+  const loadedRoleRef = useRef<string | null>(null);
+
   const loadDashboard = useCallback(async () => {
     if (!selectedRole) {
       return;
@@ -115,8 +117,11 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
 
   useFocusEffect(
     useCallback(() => {
-      loadDashboard();
-    }, [loadDashboard])
+      if (loadedRoleRef.current !== selectedRole) {
+        loadDashboard();
+        loadedRoleRef.current = selectedRole;
+      }
+    }, [loadDashboard, selectedRole])
   );
 
   const displayScore = healthAnalysis?.health_score;

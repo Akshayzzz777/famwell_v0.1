@@ -119,6 +119,7 @@ function recordStatus(recordType: string) {
 
 function providerText(record: RecordItem) {
   const data = record.data as Record<string, unknown>;
+  if (data.source === 'medical_record_upload') return 'PDF Upload';
   return String(data.provider || data.doctor || data.hospital || data.source || 'FamWell Records');
 }
 
@@ -182,11 +183,13 @@ export function PatientRecordsScreen({ navigation }: PatientRecordsProps) {
       const response = await uploadPdf(selectedRole, pickedFile);
       setPendingUpload(null);
       setActiveJob({
-        fileId: response.file_id,
-        fileName: response.filename,
-        jobId: response.job_id,
-        uploadUrl: response.upload_url,
+        fileId: response.medical_record_id,
+        fileName: response.file_name,
+        jobId: response.medical_record_id,
+        uploadUrl: response.file_url,
       });
+      // Reload records to show the new upload
+      await loadRecords();
     } catch (failure) {
       setError(failure as ApiFailure);
     } finally {
@@ -297,14 +300,22 @@ export function PatientRecordsScreen({ navigation }: PatientRecordsProps) {
     }
 
     filteredRecords.forEach((record) => {
+      const data = record.data as Record<string, unknown>;
+      const isUploadedPdf = record.record_type === 'uploaded_pdf';
+      const displayTitle = isUploadedPdf
+        ? String(data.file_name || 'Uploaded PDF')
+        : titleCase(record.record_type);
+
       items.push({
         id: record.record_id,
-        title: titleCase(record.record_type),
-        subtitle: `${formatDate(record.updated_at)} � ${providerText(record)}`,
-        preview: jsonPreview(record.data, expandedRecordId === record.record_id ? 500 : 90),
+        title: displayTitle,
+        subtitle: `${formatDate(record.updated_at)} \u00b7 ${providerText(record)}`,
+        preview: isUploadedPdf
+          ? `PDF medical record${data.has_analysis ? ' \u00b7 AI analysis available' : ' \u00b7 Tap Analyze for AI insights'}`
+          : jsonPreview(record.data, expandedRecordId === record.record_id ? 500 : 90),
         status: recordStatus(record.record_type),
         accent: recordAccent(record.record_type),
-        highlighted: record.record_type.toLowerCase().includes('prescription'),
+        highlighted: isUploadedPdf || record.record_type.toLowerCase().includes('prescription'),
         raw: record,
       });
     });
