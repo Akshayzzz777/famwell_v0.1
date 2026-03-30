@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -332,11 +332,12 @@ async def get_chat_history(
 
 @router.post("/medical-records/upload")
 async def upload_medical_record_endpoint(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     record_type: str = Form(default="general"),
     current_user: Dict[str, Any] = Depends(require_user),
 ) -> JSONResponse:
-    from shared.medical_service import upload_medical_record
+    from shared.medical_service import upload_medical_record, trigger_background_analysis
 
     prisma = get_prisma_client(settings.database_url)
 
@@ -345,6 +346,9 @@ async def upload_medical_record_endpoint(
             return _error("Only PDF files are accepted.", status.HTTP_400_BAD_REQUEST)
 
         content = await file.read()
+        logger.info("Upload request: user_id=%s, file=%s, size=%d bytes, record_type=%s",
+                     current_user["user_id"], file.filename, len(content), record_type)
+
         if len(content) > settings.max_file_size_bytes:
             return _error(f"File exceeds maximum size of {settings.max_file_size_mb}MB.", status.HTTP_400_BAD_REQUEST)
 
@@ -358,6 +362,18 @@ async def upload_medical_record_endpoint(
             file_content=content,
             record_type=record_type,
         )
+
+        # Pre-cache the LLM analysis in the background so the insights
+        # screen loads instantly when the user navigates there.
+        logger.info("Scheduling background analysis: record_id=%s, user_id=%s",
+                     record["medical_record_id"], current_user["user_id"])
+        background_tasks.add_task(
+            trigger_background_analysis,
+            settings.database_url,
+            record["medical_record_id"],
+            current_user["user_id"],
+        )
+
         return _success(record, status_code=status.HTTP_201_CREATED)
     except Exception as error:
         logger.error(f"Medical record upload failed: {error}", exc_info=True)
@@ -386,9 +402,11 @@ async def analyze_medical_record_endpoint(
     from shared.medical_service import analyze_medical_record
 
     prisma = get_prisma_client(settings.database_url)
+    logger.info("POST /medical-records/%s/analyze: user_id=%s", record_id, current_user["user_id"])
 
     try:
         analysis = await analyze_medical_record(prisma, record_id, current_user["user_id"])
+        logger.info("Analysis returned: record_id=%s, health_score=%s", record_id, analysis.get("health_score"))
         return _success(analysis)
     except ValueError as error:
         return _error(str(error), status.HTTP_404_NOT_FOUND)
@@ -408,12 +426,60 @@ async def get_latest_health_insights(
     from shared.medical_service import get_health_insights_for_user
 
     prisma = get_prisma_client(settings.database_url)
+    logger.info("GET /health-insights/latest: user_id=%s", current_user["user_id"])
 
     try:
         insights = await get_health_insights_for_user(prisma, current_user["user_id"])
+        logger.info("Health insights returned: user_id=%s, health_score=%s, stress_score=%s",
+                     current_user["user_id"], insights.get("health_score"), insights.get("stress_score"))
         return _success(insights)
     except Exception as error:
         logger.error(f"Fetching latest health insights failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/health-insights/history")
+async def get_health_insights_history_endpoint(
+    limit: int = Query(default=10, ge=1, le=50),
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Get historical health analyses for the current user."""
+    from shared.medical_service import get_health_insights_history
+
+    prisma = get_prisma_client(settings.database_url)
+    logger.info("GET /health-insights/history: user_id=%s, limit=%d", current_user["user_id"], limit)
+
+    try:
+        history = await get_health_insights_history(prisma, current_user["user_id"], limit)
+        return _success({"history": history, "count": len(history)})
+    except Exception as error:
+        logger.error(f"Fetching health insights history failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/health-insights/ask-ai")
+async def ask_ai_insight_endpoint(
+    payload: Dict[str, Any],
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Ask AI for a contextual insight on a specific health parameter."""
+    from shared.medical_service import ask_ai_contextual_insight
+
+    prisma = get_prisma_client(settings.database_url)
+    parameter = payload.get("parameter", "stress_score")
+    conversation_id = payload.get("conversation_id")
+    logger.info("POST /health-insights/ask-ai: user_id=%s, parameter=%s", current_user["user_id"], parameter)
+
+    try:
+        result = await ask_ai_contextual_insight(
+            prisma,
+            current_user["user_id"],
+            parameter,
+            conversation_id,
+        )
+        return _success(result)
+    except Exception as error:
+        logger.error(f"Ask AI insight failed: {error}", exc_info=True)
         return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -426,9 +492,12 @@ async def get_health_insights(
     from shared.medical_service import get_health_insights_for_user
 
     prisma = get_prisma_client(settings.database_url)
+    logger.info("GET /health-insights/%s: user_id=%s", record_id, current_user["user_id"])
 
     try:
         insights = await get_health_insights_for_user(prisma, current_user["user_id"], record_id)
+        logger.info("Health insights returned: record_id=%s, health_score=%s, stress_score=%s",
+                     record_id, insights.get("health_score"), insights.get("stress_score"))
         return _success(insights)
     except ValueError as error:
         return _error(str(error), status.HTTP_404_NOT_FOUND)
