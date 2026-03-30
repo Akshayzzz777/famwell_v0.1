@@ -1,11 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppScaffold } from '../components/Layout';
 import { Button, Card, SectionTitle } from '../components/Primitives';
 import { formatTime } from '../lib/format';
 import { theme } from '../lib/theme';
 import type { ConsultationChatProps } from '../navigation';
+import { useApp } from '../state/AppContext';
+import { sendChatMessage } from '../../services/api';
 
 type Message = {
   id: string;
@@ -14,61 +16,84 @@ type Message = {
   timestamp: string;
 };
 
-const seedMessages: Message[] = [
+const welcomeMessages: Message[] = [
   {
-    id: '1',
+    id: 'welcome-1',
     author: 'assistant',
     text: 'Hello, I can help you prepare for your next visit, organize your questions, or review the prescription summary together.',
     timestamp: new Date().toISOString(),
   },
   {
-    id: '2',
+    id: 'welcome-2',
     author: 'assistant',
     text: 'Tell me what you want to focus on today and I will keep the conversation organized.',
     timestamp: new Date().toISOString(),
   },
 ];
 
-const cannedReplies = [
-  'You may want to ask about dosage timing, refill duration, and any interactions with current medications.',
-  'A useful next step is to compare this summary with the latest lab results and confirm whether the treatment plan changed.',
-  'For a follow-up visit, bring the prescription, your symptoms timeline, and any questions about side effects or monitoring.',
-];
-
-export function ConsultationChatScreen({ navigation }: ConsultationChatProps) {
+export function ConsultationChatScreen({ navigation, route }: ConsultationChatProps) {
   const scrollRef = useRef<ScrollView | null>(null);
-  const [messages, setMessages] = useState<Message[]>(seedMessages);
+  const { selectedRole } = useApp();
+  const [messages, setMessages] = useState<Message[]>(welcomeMessages);
   const [draft, setDraft] = useState('');
-  const [replyIndex, setReplyIndex] = useState(0);
+  const [sending, setSending] = useState(false);
+  const [conversationId, setConversationId] = useState<string | undefined>();
+  const initialMessageSent = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const handleSend = () => {
-    const text = draft.trim();
-    if (!text) {
-      return;
-    }
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || sending) return;
 
     const timestamp = new Date().toISOString();
     const userMessage: Message = {
       author: 'user',
       id: `${timestamp}-user`,
-      text,
+      text: text.trim(),
       timestamp,
     };
 
-    const assistantMessage: Message = {
-      author: 'assistant',
-      id: `${timestamp}-assistant`,
-      text: cannedReplies[replyIndex % cannedReplies.length],
-      timestamp: new Date(Date.now() + 500).toISOString(),
-    };
-
-    setMessages((current) => [...current, userMessage, assistantMessage]);
+    setMessages((current) => [...current, userMessage]);
     setDraft('');
-    setReplyIndex((value) => value + 1);
+    setSending(true);
+
+    try {
+      const response = await sendChatMessage(selectedRole, text.trim(), conversationId);
+      setConversationId(response.conversation_id);
+
+      const assistantMessage: Message = {
+        author: 'assistant',
+        id: response.message.message_id,
+        text: response.message.content,
+        timestamp: response.message.created_at,
+      };
+      setMessages((current) => [...current, assistantMessage]);
+    } catch {
+      const errorMessage: Message = {
+        author: 'assistant',
+        id: `${timestamp}-error`,
+        text: 'Sorry, I was unable to process that. Please try again.',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((current) => [...current, errorMessage]);
+    } finally {
+      setSending(false);
+    }
+  }, [sending, selectedRole, conversationId]);
+
+  // Auto-send initialMessage from navigation params (e.g. from StressAnalysis "Discuss in Chat")
+  useEffect(() => {
+    const initialMessage = route.params?.initialMessage;
+    if (initialMessage && !initialMessageSent.current) {
+      initialMessageSent.current = true;
+      sendMessage(initialMessage);
+    }
+  }, [route.params?.initialMessage, sendMessage]);
+
+  const handleSend = () => {
+    sendMessage(draft);
   };
 
   return (
@@ -85,9 +110,16 @@ export function ConsultationChatScreen({ navigation }: ConsultationChatProps) {
               </View>
             );
           })}
+          {sending && (
+            <View style={[styles.messageBubble, styles.messageBubbleAssistant, styles.typingBubble]}>
+              <ActivityIndicator color={theme.colors.primary} size="small" />
+              <Text style={styles.typingText}>Thinking…</Text>
+            </View>
+          )}
         </ScrollView>
         <View style={styles.inputRow}>
           <TextInput
+            editable={!sending}
             multiline
             onChangeText={setDraft}
             placeholder="Type your question or follow-up note"
@@ -95,7 +127,7 @@ export function ConsultationChatScreen({ navigation }: ConsultationChatProps) {
             style={styles.input}
             value={draft}
           />
-          <Button label="Send" onPress={handleSend} />
+          <Button disabled={sending || !draft.trim()} label={sending ? 'Sending…' : 'Send'} onPress={handleSend} />
         </View>
       </Card>
     </AppScaffold>
@@ -139,6 +171,16 @@ const styles = StyleSheet.create({
   },
   messageTimeMine: {
     color: 'rgba(255,255,255,0.7)',
+  },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  typingText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSoft,
+    fontStyle: 'italic',
   },
   inputRow: {
     gap: theme.spacing.sm,
