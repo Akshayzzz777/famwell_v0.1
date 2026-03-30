@@ -20,11 +20,12 @@ export type MainStackParamList = {
   ResultScreen: {
     jobId?: string;
   } | undefined;
-  ConsultationChat: undefined;
+  ConsultationChat: { initialMessage?: string } | undefined;
   PatientRecords: undefined;
   FamilyProfiles: undefined;
   FriendsAndFamily: undefined;
   AIInsights: undefined;
+  StressAnalysis: { parameter?: string } | undefined;
 };
 
 export type MainRouteName = keyof MainStackParamList;
@@ -40,6 +41,7 @@ export type PatientRecordsProps = NativeStackScreenProps<MainStackParamList, 'Pa
 export type FamilyProfilesProps = NativeStackScreenProps<MainStackParamList, 'FamilyProfiles'>;
 export type FriendsAndFamilyProps = NativeStackScreenProps<MainStackParamList, 'FriendsAndFamily'>;
 export type AIInsightsProps = NativeStackScreenProps<MainStackParamList, 'AIInsights'>;
+export type StressAnalysisProps = NativeStackScreenProps<MainStackParamList, 'StressAnalysis'>;
 
 export const mainNavItems: Array<{
   label: string;
