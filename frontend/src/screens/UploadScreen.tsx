@@ -115,7 +115,7 @@ export function UploadScreen({ navigation }: UploadScreenProps) {
               <View style={styles.analysisSection}>
                 <Text style={styles.analysisSectionTitle}>Insights</Text>
                 {analysisResult.insights.map((insight, i) => (
-                  <Text key={i} style={styles.analysisBullet}>• {insight}</Text>
+                  <Text key={i} style={styles.analysisBullet}>• {typeof insight === 'object' && 'description' in insight ? insight.description : String(insight)}</Text>
                 ))}
               </View>
             )}
@@ -131,7 +131,7 @@ export function UploadScreen({ navigation }: UploadScreenProps) {
               <View style={styles.analysisSection}>
                 <Text style={styles.analysisSectionTitle}>Recommendations</Text>
                 {analysisResult.recommendations.map((rec, i) => (
-                  <Text key={i} style={styles.analysisBullet}>• {rec}</Text>
+                  <Text key={i} style={styles.analysisBullet}>• {typeof rec === 'object' && 'description' in rec ? rec.description : String(rec)}</Text>
                 ))}
               </View>
             )}

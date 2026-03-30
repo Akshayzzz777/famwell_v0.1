@@ -58,7 +58,7 @@ export function FamilyProfileScreen({ navigation }: FamilyProfileProps) {
               <>
                 <Text style={styles.notes}>Health Score: {healthData.health_score}/100</Text>
                 {healthData.insights.slice(0, 3).map((insight, i) => (
-                  <Text key={i} style={[styles.notes, { marginTop: 4 }]}>{'\u2022'} {insight}</Text>
+                  <Text key={i} style={[styles.notes, { marginTop: 4 }]}>{'\u2022'} {typeof insight === 'object' && 'description' in insight ? insight.description : String(insight)}</Text>
                 ))}
                 {healthData.risks.length > 0 ? (
                   <Text style={[styles.notes, { marginTop: 8, color: theme.colors.accent.rose }]}>

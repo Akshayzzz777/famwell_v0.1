@@ -154,7 +154,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
             </View>
             <View>
               <Text style={styles.statusSubtitle}>{currentUser?.email || 'Authenticated session active'}</Text>
-              <Text style={styles.statusScore}>{healthData?.insights?.[0] || currentUser?.healthId || 'Upload a report to get insights'}</Text>
+              <Text style={styles.statusScore}>{healthData?.insights?.[0] ? (typeof healthData.insights[0] === 'object' && 'title' in healthData.insights[0] ? healthData.insights[0].title : String(healthData.insights[0])) : currentUser?.healthId || 'Upload a report to get insights'}</Text>
             </View>
           </View>
         </Card>

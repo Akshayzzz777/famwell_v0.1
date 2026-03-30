@@ -213,7 +213,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
         key: 'consultation',
         title: 'Last consultation',
         detail: lastConnection
-          ? `${firstName(lastConnection.user.full_name || lastConnection.user.email)} � ${formatDate(lastConnection.created_at)}`
+          ? `${firstName(lastConnection.user.full_name || lastConnection.user.email)}  ${formatDate(lastConnection.created_at)}`
           : 'No consultations yet',
         icon: 'medical-services',
         family: 'MaterialIcons',
@@ -223,7 +223,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
       {
         key: 'report',
         title: 'Latest report upload',
-        detail: `${reportLabel} � ${activeJob?.fileName ? 'Today' : recordDate}`,
+        detail: `${reportLabel}  ${activeJob?.fileName ? 'Today' : recordDate}`,
         icon: 'description',
         family: 'MaterialIcons',
         accent: '#2F7F31',
