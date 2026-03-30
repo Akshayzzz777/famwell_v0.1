@@ -32,9 +32,8 @@
                                "eas":  {
                                            "projectId":  "document-processor-mobile"
                                        },
-                               "apiUrl":  "http://10.101.201.74:8000",
+                               "apiUrl":  "http://10.10.36.120:8000",
                                "apiUrls":  [
-                                                "http://10.101.201.74:8000",
                                                 "http://10.10.36.120:8000"
                                             ]
                            },
