@@ -90,6 +90,9 @@ async def ensure_supporting_schema(prisma: Prisma) -> None:
         ),
         "CREATE INDEX IF NOT EXISTS medical_records_user_id_idx ON medical_records (user_id)",
         "CREATE INDEX IF NOT EXISTS medical_records_record_type_idx ON medical_records (record_type)",
+        # Analysis cache columns for medical records
+        "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS analysis_json JSONB",
+        "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS analyzed_at TIMESTAMPTZ",
         # Chat conversations table
         (
             "CREATE TABLE IF NOT EXISTS chat_conversations ("
@@ -231,6 +234,8 @@ async def list_records(
     target_user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     owner_id = await _resolve_record_owner_id(prisma, requester, target_user_id)
+
+    # Fetch regular records
     rows = await prisma.query_raw(
         (
             "SELECT record_id, user_id, record_type, data, created_at, updated_at "
@@ -238,6 +243,36 @@ async def list_records(
         ),
         owner_id,
     )
+
+    # Also fetch uploaded medical records (PDFs) so they appear in the records screen
+    med_rows = await prisma.query_raw(
+        (
+            "SELECT medical_record_id, user_id, file_name, record_type, upload_date, "
+            "analysis_json IS NOT NULL AS has_analysis "
+            "FROM medical_records WHERE user_id = $1 ORDER BY upload_date DESC"
+        ),
+        owner_id,
+    )
+
+    # Convert medical_records into the same shape as regular records
+    for mr in med_rows:
+        rows.append({
+            'record_id': mr['medical_record_id'],
+            'user_id': mr['user_id'],
+            'record_type': 'uploaded_pdf',
+            'data': {
+                'file_name': mr['file_name'],
+                'original_type': mr['record_type'],
+                'has_analysis': mr.get('has_analysis', False),
+                'source': 'medical_record_upload',
+            },
+            'created_at': mr['upload_date'],
+            'updated_at': mr['upload_date'],
+        })
+
+    # Sort combined list by date descending
+    rows.sort(key=lambda r: r.get('updated_at') or r.get('created_at') or '', reverse=True)
+
     return {
         'records': rows,
         'owner_user_id': owner_id,
