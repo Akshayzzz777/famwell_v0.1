@@ -158,6 +158,8 @@ model MedicalRecord {
   file_name         String   @db.VarChar(255)
   record_type       String   @default("general") @db.VarChar(100)
   upload_date       DateTime @default(now())
+  analysis_json     Json?
+  analyzed_at       DateTime?
   user              User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 
   @@index([user_id])
