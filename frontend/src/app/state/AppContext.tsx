@@ -14,6 +14,7 @@ import {
   type SessionUser,
   type UiRole,
 } from '../lib/api';
+import { queryClient } from '../RootNavigator';
 
 export type ActiveJob = {
   jobId: string;
@@ -71,6 +72,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setUnauthorizedHandler((failure: ApiFailure) => {
       clearPersistedAccess();
+      queryClient.clear();
       setSelectedRoleState(null);
       setCurrentUser(null);
       setHasStoredToken(false);
@@ -97,6 +99,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     clearPersistedAccess();
+    queryClient.clear();
     setSelectedRoleState(null);
     setCurrentUser(null);
     setHasStoredToken(false);
@@ -129,6 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(session.user);
         setHasStoredToken(true);
         setSessionError(null);
+        queryClient.clear();
         return true;
       } catch (error) {
         setSessionError((error as ApiFailure)?.message || 'Unable to sign in.');
@@ -163,6 +167,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(session.user);
         setHasStoredToken(true);
         setSessionError(null);
+        queryClient.clear();
         return true;
       } catch (error) {
         setSessionError((error as ApiFailure)?.message || 'Unable to create account.');

@@ -21,13 +21,13 @@ import { AIInsightsScreen } from './screens/AIInsightsScreen';
 import { StressAnalysisScreen } from './screens/StressAnalysisScreen';
 import type { AuthStackParamList, MainStackParamList, SplashStackParamList } from './navigation';
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
-      refetchOnMount: false,
+      refetchOnMount: true,
       retry: 1,
     },
   },
