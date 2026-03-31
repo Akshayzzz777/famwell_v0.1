@@ -191,3 +191,17 @@ model ChatMessage {
   @@index([conversation_id])
   @@map("chat_messages")
 }
+
+model Doctor {
+  doctor_id      String   @id @default(cuid()) @db.VarChar(64)
+  name           String   @db.VarChar(255)
+  specialization String   @db.VarChar(100)
+  experience     String   @db.VarChar(50)
+  rating         Float    @default(0)
+  health_id      String   @unique @db.VarChar(32)
+  avatar_url     String?  @db.VarChar(512)
+  created_at     DateTime @default(now())
+
+  @@index([specialization])
+  @@map("doctors")
+}
