@@ -504,3 +504,178 @@ async def get_health_insights(
     except Exception as error:
         logger.error(f"Fetching health insights failed: {error}", exc_info=True)
         return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Doctor Endpoints ──
+
+
+@router.get("/doctors/recommended")
+async def get_recommended_doctors_endpoint(
+    record_id: Optional[str] = Query(default=None),
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Get doctors recommended based on the user's health analysis."""
+    from shared.doctor_service import get_recommended_doctors
+
+    prisma = get_prisma_client(settings.database_url)
+    logger.info("GET /doctors/recommended: user_id=%s, record_id=%s", current_user["user_id"], record_id)
+
+    try:
+        result = await get_recommended_doctors(prisma, current_user["user_id"], record_id)
+        return _success(result)
+    except Exception as error:
+        logger.error(f"Fetching recommended doctors failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/doctors/search")
+async def search_doctors_endpoint(
+    q: str = Query(default=""),
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Search doctors by name, specialization, or health ID."""
+    from shared.doctor_service import search_doctors
+
+    prisma = get_prisma_client(settings.database_url)
+    logger.info("GET /doctors/search: q=%s", q)
+
+    try:
+        doctors = await search_doctors(prisma, q)
+        return _success({"doctors": doctors})
+    except Exception as error:
+        logger.error(f"Doctor search failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/doctors/seed")
+async def seed_doctors_endpoint(
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Seed the doctors table with mock data."""
+    from shared.doctor_service import seed_doctors
+
+    prisma = get_prisma_client(settings.database_url)
+    logger.info("POST /doctors/seed: triggered by user_id=%s", current_user["user_id"])
+
+    try:
+        count = await seed_doctors(prisma)
+        return _success({"seeded": count, "message": f"Inserted {count} doctors"})
+    except Exception as error:
+        logger.error(f"Doctor seeding failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── User Search Endpoints ──
+
+
+@router.get("/users/search")
+async def search_users_endpoint(
+    health_id: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None),
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Search users by health_id (exact/partial) or name."""
+    prisma = get_prisma_client(settings.database_url)
+    my_id = current_user["user_id"]
+
+    try:
+        # Exact health_id match first
+        if health_id:
+            hid = health_id.strip().upper()
+            rows = await prisma.query_raw(
+                "SELECT user_id, email, role, full_name, phone_number, health_id "
+                "FROM users WHERE UPPER(health_id) = $1 AND user_id != $2 LIMIT 10",
+                hid, my_id,
+            )
+            # If no exact match, try partial
+            if not rows:
+                rows = await prisma.query_raw(
+                    "SELECT user_id, email, role, full_name, phone_number, health_id "
+                    "FROM users WHERE UPPER(health_id) LIKE $1 AND user_id != $2 ORDER BY full_name LIMIT 10",
+                    f"%{hid}%", my_id,
+                )
+        elif q:
+            term = q.strip()
+            rows = await prisma.query_raw(
+                "SELECT user_id, email, role, full_name, phone_number, health_id "
+                "FROM users WHERE (LOWER(full_name) LIKE $1 OR LOWER(email) LIKE $1) AND user_id != $2 "
+                "ORDER BY full_name LIMIT 10",
+                f"%{term.lower()}%", my_id,
+            )
+        else:
+            rows = []
+
+        # Attach connection status for each result
+        results = []
+        for row in rows:
+            # Check outgoing connection
+            conn_rows = await prisma.query_raw(
+                "SELECT connection_id, status FROM connections "
+                "WHERE (follower_id = $1 AND following_id = $2) OR (follower_id = $2 AND following_id = $1) LIMIT 1",
+                my_id, row["user_id"],
+            )
+            conn_status = "none"
+            conn_id = None
+            if conn_rows:
+                conn_status = conn_rows[0].get("status", "none")
+                conn_id = conn_rows[0].get("connection_id")
+
+            results.append({
+                "user_id": row["user_id"],
+                "role": row["role"],
+                "full_name": row.get("full_name"),
+                "health_id": row.get("health_id"),
+                "connection_status": conn_status,
+                "connection_id": conn_id,
+            })
+
+        return _success({"users": results})
+    except Exception as error:
+        logger.error(f"User search failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/users/seed")
+async def seed_users_endpoint(
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Seed mock users for testing."""
+    prisma = get_prisma_client(settings.database_url)
+    logger.info("POST /users/seed: triggered by user_id=%s", current_user["user_id"])
+
+    from shared.security import hash_password
+
+    MOCK_USERS = [
+        {"email": "rahul.sharma@test.com", "full_name": "Rahul Sharma", "role": "USER", "phone": "9876543210"},
+        {"email": "priya.patel@test.com", "full_name": "Priya Patel", "role": "USER", "phone": "9876543211"},
+        {"email": "amit.singh@test.com", "full_name": "Amit Singh", "role": "USER", "phone": "9876543212"},
+        {"email": "neha.gupta@test.com", "full_name": "Neha Gupta", "role": "USER", "phone": "9876543213"},
+        {"email": "vikram.roy@test.com", "full_name": "Vikram Roy", "role": "USER", "phone": "9876543214"},
+        {"email": "simran.kaur@test.com", "full_name": "Simran Kaur", "role": "USER", "phone": "9876543215"},
+        {"email": "arjun.nair@test.com", "full_name": "Arjun Nair", "role": "USER", "phone": "9876543216"},
+        {"email": "meera.reddy@test.com", "full_name": "Meera Reddy", "role": "USER", "phone": "9876543217"},
+        {"email": "kabir.khan@test.com", "full_name": "Kabir Khan", "role": "USER", "phone": "9876543218"},
+        {"email": "ananya.joshi@test.com", "full_name": "Ananya Joshi", "role": "USER", "phone": "9876543219"},
+        {"email": "doc.julian@test.com", "full_name": "Dr. Julian Thorne", "role": "DOCTOR", "phone": "9876543300"},
+        {"email": "doc.sarah@test.com", "full_name": "Dr. Sarah Jenkins", "role": "DOCTOR", "phone": "9876543301"},
+    ]
+
+    pwd_hash = hash_password("Test123!")
+    count = 0
+    try:
+        for u in MOCK_USERS:
+            existing = await prisma.query_raw(
+                "SELECT user_id FROM users WHERE email = $1 LIMIT 1", u["email"],
+            )
+            if existing:
+                continue
+            user_row = await create_user(
+                prisma, email=u["email"], password_hash=pwd_hash,
+                role=u["role"], full_name=u["full_name"], phone_number=u["phone"],
+            )
+            count += 1
+
+        return _success({"seeded": count, "message": f"Inserted {count} users"})
+    except Exception as error:
+        logger.error(f"User seeding failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
