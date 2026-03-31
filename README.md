@@ -105,7 +105,7 @@ docker-compose up -d
 - **Redis** 7+ - Job queue and caching
 
 **AI/ML:**
-- **Google Gemini** - LLM for document analysis
+- **Azure OpenAI** - LLM for document analysis
 - **PyPDF2** - PDF text extraction
 
 **Infrastructure:**
