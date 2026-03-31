@@ -209,7 +209,7 @@ function dedupeUrls(urls: string[]) {
   return [...new Set(urls)];
 }
 
-const PROJECT_DEFAULT_API_URLS = ['http://10.101.201.74:8000'];
+const PROJECT_DEFAULT_API_URLS = ['http://10.15.54.74:8000'];
 
 function getExpoConfiguredApiUrl() {
   const expoConfig = Constants.expoConfig as { extra?: { apiUrl?: string } } | null;
