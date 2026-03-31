@@ -225,6 +225,16 @@ async def _resolve_record_owner_id(prisma: Prisma, requester: Dict[str, Any], ta
     if not target_user:
         raise NotFoundError('Requested user was not found.')
 
+    # Verify doctor has an accepted connection with this patient
+    conn_rows = await prisma.query_raw(
+        "SELECT connection_id FROM connections "
+        "WHERE ((follower_id = $1 AND following_id = $2) OR (follower_id = $2 AND following_id = $1)) "
+        "AND status = 'accepted' LIMIT 1",
+        requester_id, target_user_id,
+    )
+    if not conn_rows:
+        raise ForbiddenError('You do not have an accepted connection with this patient.')
+
     return target_user_id
 
 
