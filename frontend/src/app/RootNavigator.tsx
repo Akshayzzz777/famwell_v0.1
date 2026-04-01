@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { AppProvider, useApp } from './state/AppContext';
+import { OnboardingScreen } from './screens/OnboardingScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { SplashScreen } from './screens/SplashScreen';
 import { HomeDashboardScreen } from './screens/HomeDashboardScreen';
@@ -19,7 +20,7 @@ import { FamilyProfilesScreen } from './screens/FamilyProfilesScreen';
 import { FriendsAndFamilyScreen } from './screens/FriendsAndFamilyScreen';
 import { AIInsightsScreen } from './screens/AIInsightsScreen';
 import { StressAnalysisScreen } from './screens/StressAnalysisScreen';
-import type { AuthStackParamList, MainStackParamList, SplashStackParamList } from './navigation';
+import type { AuthStackParamList, MainStackParamList, OnboardingStackParamList, SplashStackParamList } from './navigation';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,9 +34,12 @@ export const queryClient = new QueryClient({
   },
 });
 
-type Flow = 'splash' | 'auth' | 'main';
+type Flow = 'splash' | 'onboarding' | 'auth' | 'main';
+
+const ONBOARDING_DONE_KEY = 'famwell_onboarding_done';
 
 const SplashStack = createNativeStackNavigator<SplashStackParamList>();
+const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainStack = createNativeStackNavigator<MainStackParamList>();
 
@@ -44,6 +48,14 @@ function SplashNavigator({ onDone }: { onDone: () => void }) {
     <SplashStack.Navigator screenOptions={{ headerShown: false }}>
       <SplashStack.Screen name="Splash">{() => <SplashScreen onFinished={onDone} />}</SplashStack.Screen>
     </SplashStack.Navigator>
+  );
+}
+
+function OnboardingNavigator({ onDone }: { onDone: () => void }) {
+  return (
+    <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+      <OnboardingStack.Screen name="Onboarding">{() => <OnboardingScreen onDone={onDone} />}</OnboardingStack.Screen>
+    </OnboardingStack.Navigator>
   );
 }
 
@@ -76,21 +88,67 @@ function MainNavigator() {
 
 function NavigationShell() {
   const { bootstrapReady, isAuthenticated } = useApp();
-  const initialFlow = useMemo<Flow>(() => (bootstrapReady ? (isAuthenticated ? 'main' : 'auth') : 'splash'), [bootstrapReady, isAuthenticated]);
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+
+  // Check onboarding status on mount
+  React.useEffect(() => {
+    try {
+      const done = typeof window !== 'undefined' && window.localStorage
+        ? window.localStorage.getItem(ONBOARDING_DONE_KEY)
+        : null;
+      setOnboardingDone(done === 'true');
+    } catch {
+      setOnboardingDone(false);
+    }
+  }, []);
+
+  const initialFlow = useMemo<Flow>(() => {
+    if (!bootstrapReady) return 'splash';
+    if (isAuthenticated) return 'main';
+    if (onboardingDone === false) return 'onboarding';
+    return 'auth';
+  }, [bootstrapReady, isAuthenticated, onboardingDone]);
   const [flow, setFlow] = useState<Flow>(initialFlow);
 
   const syncFlow = useCallback(() => {
-    setFlow(isAuthenticated ? 'main' : 'auth');
-  }, [isAuthenticated]);
+    if (isAuthenticated) {
+      setFlow('main');
+    } else if (onboardingDone === false) {
+      setFlow('onboarding');
+    } else {
+      setFlow('auth');
+    }
+  }, [isAuthenticated, onboardingDone]);
 
   React.useEffect(() => {
     syncFlow();
   }, [syncFlow]);
 
+  const handleOnboardingDone = useCallback(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
+      }
+    } catch { /* noop */ }
+    setOnboardingDone(true);
+    setFlow('auth');
+  }, []);
+
+  // Wait until onboarding status is resolved
+  if (onboardingDone === null && !bootstrapReady) {
+    return (
+      <NavigationContainer>
+        <SplashNavigator onDone={() => {}} />
+      </NavigationContainer>
+    );
+  }
+
   return (
     <NavigationContainer>
       {flow === 'splash' ? (
         <SplashNavigator onDone={syncFlow} />
+      ) : flow === 'onboarding' ? (
+        <OnboardingNavigator onDone={handleOnboardingDone} />
       ) : flow === 'auth' ? (
         <AuthNavigator onAuthenticated={() => setFlow('main')} />
       ) : (

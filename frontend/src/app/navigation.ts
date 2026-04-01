@@ -4,6 +4,10 @@ export type SplashStackParamList = {
   Splash: undefined;
 };
 
+export type OnboardingStackParamList = {
+  Onboarding: undefined;
+};
+
 export type AuthStackParamList = {
   Auth: undefined;
 };
