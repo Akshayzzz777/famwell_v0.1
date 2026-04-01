@@ -113,3 +113,4 @@ web-build/
 .env.*.local
 
 .uploads/
+backup.dump
