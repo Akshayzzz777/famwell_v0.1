@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 import {
   clearPersistedAccess,
+  googleSignIn as apiGoogleSignIn,
   loadPersistedAccess,
   loginUser,
   persistAccessToken,
@@ -41,6 +42,7 @@ type AppContextValue = {
   setPendingUpload: (file: PickedPdf | null) => void;
   setSelectedRole: (role: UiRole) => void;
   signIn: (input: { email: string; password: string }) => Promise<boolean>;
+  signInWithGoogle: (idToken: string) => Promise<boolean>;
   signUp: (input: { fullName: string; email: string; phoneNumber: string; password: string }) => Promise<boolean>;
 };
 
@@ -179,6 +181,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [selectedRole]
   );
 
+  const signInWithGoogle = useCallback(
+    async (idToken: string) => {
+      const role = selectedRole ?? 'PATIENT';
+
+      try {
+        setSessionBusy(true);
+        setSessionError(null);
+
+        const session = await apiGoogleSignIn({ token: idToken, role });
+
+        persistSelectedRole(role);
+        persistAccessToken(session.accessToken);
+        persistSessionUser(session.user);
+        setSelectedRoleState(role);
+        setCurrentUser(session.user);
+        setHasStoredToken(true);
+        setSessionError(null);
+        queryClient.clear();
+        return true;
+      } catch (error) {
+        setSessionError((error as ApiFailure)?.message || 'Google sign-in failed.');
+        return false;
+      } finally {
+        setSessionBusy(false);
+      }
+    },
+    [selectedRole]
+  );
+
     const value = useMemo<AppContextValue>(
     () => ({
       activeJob,
@@ -198,6 +229,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPendingUpload: setPendingUploadState,
       setSelectedRole,
       signIn,
+      signInWithGoogle,
       signUp,
     }),
     [
@@ -215,6 +247,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSelectedRole,
       setHealthScoreState,
       signIn,
+      signInWithGoogle,
       signUp,
     ]
   );
