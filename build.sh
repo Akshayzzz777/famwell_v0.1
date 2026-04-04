@@ -14,7 +14,7 @@ cd backend
 python -m prisma generate --schema=prisma/schema.prisma
 
 echo "==> Fetching Prisma query engine"
-python -m prisma py fetch --schema=prisma/schema.prisma
+python -m prisma py fetch
 cd ..
 
 echo "==> Build complete"
