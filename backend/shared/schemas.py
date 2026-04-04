@@ -254,6 +254,12 @@ class RegisterRequest(BaseModel):
         return normalized
 
 
+class GoogleAuthRequest(BaseModel):
+    """Google OAuth token verification request."""
+    token: str = Field(..., min_length=1)
+    selected_role: UiRoleSelection = UiRoleSelection.PATIENT
+
+
 class RecordCreateRequest(BaseModel):
     """Record creation schema."""
     record_type: str = Field(..., min_length=1, max_length=100)

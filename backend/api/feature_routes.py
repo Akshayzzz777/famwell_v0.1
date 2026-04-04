@@ -32,6 +32,7 @@ from shared.schemas import (
     ChatRequest,
     FollowActionRequest,
     FollowRequest,
+    GoogleAuthRequest,
     LoginRequest,
     RecordCreateRequest,
     RegisterRequest,
@@ -148,6 +149,63 @@ async def register(payload: RegisterRequest) -> JSONResponse:
         return _feature_error_response(error)
     except Exception as error:
         logger.error(f"Registration failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/auth/google")
+async def google_auth(payload: GoogleAuthRequest) -> JSONResponse:
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    prisma = get_prisma_client(settings.database_url)
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            payload.token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+
+        email = idinfo.get("email")
+        if not email:
+            return _error("Google account has no email address.", status.HTTP_400_BAD_REQUEST)
+
+        email = email.strip().lower()
+        full_name = idinfo.get("name", "")
+
+        user = await fetch_user_by_email(prisma, email)
+
+        if user:
+            if not user.get("is_active", True):
+                return _error("User account is inactive.", status.HTTP_403_FORBIDDEN)
+        else:
+            role = _map_selected_role(payload.selected_role)
+            user = await create_user(
+                prisma,
+                email=email,
+                password_hash=hash_password(idinfo["sub"]),
+                role=role,
+                full_name=full_name,
+                phone_number="",
+            )
+
+        user["health_id"] = await ensure_user_health_id(prisma, user["user_id"])
+        token = create_jwt_token(user_id=user["user_id"], role=user["role"])
+
+        return _success(
+            {
+                "access_token": token,
+                "token_type": "bearer",
+                "expires_in": settings.jwt_expiration_hours * 3600,
+                "user": _serialize_user(user),
+            }
+        )
+    except ValueError:
+        return _error("Invalid Google token.", status.HTTP_401_UNAUTHORIZED)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Google auth failed: {error}", exc_info=True)
         return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
