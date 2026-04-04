@@ -209,7 +209,8 @@ function dedupeUrls(urls: string[]) {
   return [...new Set(urls)];
 }
 
-const PROJECT_DEFAULT_API_URLS = ['http://10.15.54.74:8000'];
+const PRODUCTION_API_URL = 'https://famwell-v0-1.onrender.com';
+const PROJECT_DEFAULT_API_URLS = [PRODUCTION_API_URL, 'http://10.15.54.74:8000'];
 
 function getExpoConfiguredApiUrl() {
   const expoConfig = Constants.expoConfig as { extra?: { apiUrl?: string } } | null;
@@ -238,12 +239,12 @@ function getExpoHost() {
 function resolveApiBaseUrls() {
   const configuredUrls = parseConfiguredApiUrls(process.env.EXPO_PUBLIC_API_URLS);
   const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
-  const candidates = [...configuredUrls];
+  const candidates: string[] = [];
 
-  // On web, always try localhost first
-  if (Platform.OS === 'web') {
-    candidates.push('http://127.0.0.1:8000');
-  }
+  // Production URL always first — guaranteed reachable from any device
+  candidates.push(PRODUCTION_API_URL);
+
+  candidates.push(...configuredUrls);
 
   if (configured) {
     candidates.push(normalizeBaseUrl(configured));
@@ -256,25 +257,26 @@ function resolveApiBaseUrls() {
     candidates.push(expoConfigured);
   }
 
-  // Hardcoded project defaults (Wi-Fi IP first)
   candidates.push(...PROJECT_DEFAULT_API_URLS.map(normalizeBaseUrl));
 
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
-    const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-    candidates.push(`http://${host}:8000`);
-  }
-
-  // Expo dev server host → backend on same machine
+  // Expo dev server host → backend on same machine (dev only)
   const expoHost = getExpoHost();
   if (expoHost && expoHost !== 'localhost' && expoHost !== '127.0.0.1') {
     candidates.push(`http://${expoHost}:8000`);
+  }
+
+  if (Platform.OS === 'web') {
+    candidates.push('http://127.0.0.1:8000');
   }
 
   if (Platform.OS === 'android') {
     candidates.push('http://10.0.2.2:8000');
   }
 
-  candidates.push('http://127.0.0.1:8000');
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+    candidates.push(`http://${host}:8000`);
+  }
 
   return dedupeUrls(candidates);
 }

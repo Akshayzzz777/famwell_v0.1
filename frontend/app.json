@@ -29,9 +29,9 @@
       "bundler": "metro"
     },
     "extra": {
-      "apiUrl": "http://10.15.54.74:8000",
+      "apiUrl": "https://famwell-v0-1.onrender.com",
       "apiUrls": [
-        "http://10.15.54.74:8000",
+        "https://famwell-v0-1.onrender.com",
         "http://10.15.54.74:8000"
       ],
       "eas": {
