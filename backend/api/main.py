@@ -28,21 +28,42 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting up...")
 
+    db_connected = False
     prisma = get_prisma_client(settings.database_url)
-    await prisma.connect()
 
-    try:
-        await ensure_supporting_schema(prisma)
-        await prisma.user.find_first()
-        logger.info("Database connected successfully")
-    except Exception as error:
-        logger.error(f"Database health check failed: {error}")
-        raise RuntimeError("Failed to connect to database")
+    # Attempt database connection with retries — don't crash if unavailable
+    for attempt in range(1, 4):
+        try:
+            await prisma.connect()
+            await ensure_supporting_schema(prisma)
+            await prisma.user.find_first()
+            db_connected = True
+            logger.info("Database connected successfully")
+            break
+        except Exception as error:
+            logger.warning(
+                f"Database connection attempt {attempt}/3 failed: {error}"
+            )
+            if attempt < 3:
+                import asyncio
+                await asyncio.sleep(2 * attempt)
+
+    if not db_connected:
+        logger.error(
+            "Database unavailable after 3 attempts — "
+            "server will start but DB-dependent routes will fail"
+        )
+
+    app.state.db_connected = db_connected
 
     yield
 
     logger.info("Shutting down...")
-    await prisma.disconnect()
+    if db_connected:
+        try:
+            await prisma.disconnect()
+        except Exception as error:
+            logger.error(f"Error during database disconnect: {error}")
     logger.info("Shutdown complete")
 
 
@@ -72,8 +93,19 @@ def create_app() -> FastAPI:
     app.include_router(feature_router)
 
     @app.get("/health")
-    async def health_check(current_user: dict | None = Depends(get_optional_current_user)):
+    async def health_check(request: Request, current_user: dict | None = Depends(get_optional_current_user)):
         prisma = get_prisma_client(settings.database_url)
+
+        # Lazy reconnect if DB was unavailable at startup
+        if not getattr(request.app.state, "db_connected", False):
+            try:
+                if not prisma.is_connected():
+                    await prisma.connect()
+                await prisma.query_raw("SELECT 1 AS ok")
+                request.app.state.db_connected = True
+                logger.info("Database reconnected via health check")
+            except Exception:
+                pass
 
         try:
             await prisma.query_raw("SELECT 1 AS ok")
