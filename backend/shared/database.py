@@ -3,6 +3,18 @@ Database connection and management using Prisma ORM.
 Handles PostgreSQL connections with proper lifecycle management.
 """
 
+import os
+from pathlib import Path
+
+# Resolve paths relative to the backend/ directory (parent of shared/)
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_SCHEMA_PATH = _BACKEND_DIR / "prisma" / "schema.prisma"
+_BINARY_CACHE = _BACKEND_DIR / ".prisma"
+
+# Tell Prisma Client Python where to find the schema and engine binaries
+os.environ.setdefault("PRISMA_SCHEMA_PATH", str(_SCHEMA_PATH))
+os.environ.setdefault("PRISMA_BINARY_CACHE_DIR", str(_BINARY_CACHE))
+
 from prisma import Prisma
 from prisma.errors import PrismaError
 from typing import Optional

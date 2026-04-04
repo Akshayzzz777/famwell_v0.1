@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, validator
 from enum import Enum
 import re
 
-
 class UserRole(str, Enum):
     """User role enumeration for RBAC."""
     USER = "USER"

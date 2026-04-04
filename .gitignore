@@ -7,10 +7,12 @@
 
 # Prisma
 prisma/.env
+backend/prisma/.env
 backend/database/prisma/migrations/
 backend/database/migrations/
 node_modules/
 .prisma/
+backend/.prisma/
 
 # Python
 __pycache__/

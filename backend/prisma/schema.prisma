@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id             String             @id @default(cuid()) @db.VarChar(36)
+  email               String             @unique @db.VarChar(255)
+  password            String             @db.VarChar(255)
+  created_at          DateTime           @default(now())
+  is_active           Boolean            @default(true)
+  role                String             @default("USER") @db.VarChar(20)
+  full_name           String?
+  phone_number        String?
+  health_id           String?            @unique @db.VarChar(32)
+  chatConversations   ChatConversation[]
+  outgoingConnections Connection[]       @relation("ConnectionFollower")
+  incomingConnections Connection[]       @relation("ConnectionFollowing")
+  files               File[]
+  jobs                Job[]
+  medicalRecords      MedicalRecord[]
+  records             Record[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model File {
+  file_id         String   @id @default(cuid()) @db.VarChar(36)
+  user_id         String   @db.VarChar(36)
+  filename        String   @db.VarChar(255)
+  file_size_bytes Int
+  file_hash       String   @unique @db.VarChar(64)
+  gcs_path        String   @db.VarChar(512)
+  scan_status     String   @default("pending") @db.VarChar(50)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  user            User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  jobs            Job[]
+
+  @@index([user_id])
+  @@index([file_hash])
+  @@map("files")
+}
+
+model Job {
+  job_id         String             @id @default(cuid()) @db.VarChar(36)
+  file_id        String             @db.VarChar(36)
+  user_id        String             @db.VarChar(36)
+  status         String             @default("PENDING") @db.VarChar(50)
+  created_at     DateTime           @default(now())
+  started_at     DateTime?
+  completed_at   DateTime?
+  retry_count    Int                @default(0)
+  error_message  String?
+  updated_at     DateTime           @updatedAt
+  extracted_json ExtractedJSON?
+  file           File               @relation(fields: [file_id], references: [file_id], onDelete: Cascade)
+  user           User               @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  llm_result     LLMResult?
+  metrics        ProcessingMetric[]
+
+  @@index([user_id])
+  @@index([file_id])
+  @@index([status])
+  @@map("jobs")
+}
+
+model ExtractedJSON {
+  extraction_id     String   @id @default(cuid()) @db.VarChar(36)
+  job_id            String   @unique @db.VarChar(36)
+  extracted_data    Json
+  validation_status String   @default("pending") @db.VarChar(50)
+  validation_errors String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  job               Job      @relation(fields: [job_id], references: [job_id], onDelete: Cascade)
+
+  @@index([job_id])
+  @@map("extracted_json")
+}
+
+model LLMResult {
+  result_id               String   @id @default(cuid()) @db.VarChar(36)
+  job_id                  String   @unique @db.VarChar(36)
+  prompt_sent             String
+  llm_response            String
+  structured_output       Json?
+  processing_time_seconds Float
+  tokens_used             Int?
+  model_used              String   @default("gpt-4") @db.VarChar(100)
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+  job                     Job      @relation(fields: [job_id], references: [job_id], onDelete: Cascade)
+
+  @@index([job_id])
+  @@map("llm_results")
+}
+
+model ProcessingMetric {
+  metric_id    String   @id @default(cuid()) @db.VarChar(36)
+  job_id       String?  @db.VarChar(36)
+  metric_type  String   @db.VarChar(100)
+  metric_value Float
+  timestamp    DateTime @default(now())
+  metadata     Json?
+  job          Job?     @relation(fields: [job_id], references: [job_id])
+
+  @@index([metric_type])
+  @@index([timestamp])
+  @@index([job_id])
+  @@map("processing_metrics")
+}
+
+model Record {
+  record_id   String   @id @db.VarChar(64)
+  user_id     String   @db.VarChar(36)
+  record_type String   @db.VarChar(100)
+  data        Json
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user        User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([record_type])
+  @@map("records")
+}
+
+model Connection {
+  connection_id String   @id @db.VarChar(64)
+  follower_id   String   @db.VarChar(36)
+  following_id  String   @db.VarChar(36)
+  status        String   @default("pending") @db.VarChar(20)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now()) @updatedAt
+  follower      User     @relation("ConnectionFollower", fields: [follower_id], references: [user_id], onDelete: Cascade)
+  following     User     @relation("ConnectionFollowing", fields: [following_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([follower_id, following_id])
+  @@unique([follower_id, following_id], map: "connections_pair_unique")
+  @@index([follower_id])
+  @@index([following_id])
+  @@index([status])
+  @@index([follower_id], map: "connections_follower_idx")
+  @@index([following_id], map: "connections_following_idx")
+  @@map("connections")
+}
+
+model MedicalRecord {
+  medical_record_id String    @id @db.VarChar(64)
+  user_id           String    @db.VarChar(36)
+  file_url          String    @db.VarChar(1024)
+  file_name         String    @db.VarChar(255)
+  record_type       String    @default("general") @db.VarChar(100)
+  upload_date       DateTime  @default(now())
+  analysis_json     Json?
+  analyzed_at       DateTime?
+  user              User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([record_type])
+  @@map("medical_records")
+}
+
+model ChatConversation {
+  conversation_id String        @id @db.VarChar(64)
+  user_id         String        @db.VarChar(36)
+  title           String?       @db.VarChar(255)
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @default(now()) @updatedAt
+  user            User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  messages        ChatMessage[]
+
+  @@index([user_id])
+  @@map("chat_conversations")
+}
+
+model ChatMessage {
+  message_id      String           @id @db.VarChar(64)
+  conversation_id String           @db.VarChar(64)
+  role            String           @db.VarChar(20)
+  content         String
+  created_at      DateTime         @default(now())
+  conversation    ChatConversation @relation(fields: [conversation_id], references: [conversation_id], onDelete: Cascade)
+
+  @@index([conversation_id])
+  @@map("chat_messages")
+}
+
+model Doctor {
+  doctor_id      String   @id @default(cuid()) @db.VarChar(64)
+  name           String   @db.VarChar(255)
+  specialization String   @db.VarChar(100)
+  experience     String   @db.VarChar(50)
+  rating         Float    @default(0)
+  health_id      String   @unique @db.VarChar(32)
+  avatar_url     String?  @db.VarChar(512)
+  created_at     DateTime @default(now())
+
+  @@index([specialization])
+  @@map("doctors")
+}
