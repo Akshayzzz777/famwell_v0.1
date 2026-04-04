@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     database_max_overflow: int = Field(default=10, env="DATABASE_MAX_OVERFLOW")
     database_pool_timeout: int = Field(default=30, env="DATABASE_POOL_TIMEOUT")
 
-    # Redis
-    redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
+    # Redis (Upstash)
+    redis_url: str = Field(default="rediss://default:gQAAAAAAAQX5AAIncDEwNTgwNGM5YmUwNTY0MmI4YTU1ZDAxMjkwOTQ5NGI0ZHAxNjcwNjU@noble-hermit-67065.upstash.io:6379", env="REDIS_URL")
     redis_queue_name: str = Field(default="document_processing_jobs", env="REDIS_QUEUE_NAME")
     redis_dlq_name: str = Field(default="document_processing_dlq", env="REDIS_DLQ_NAME")
     redis_ttl_seconds: int = Field(default=86400, env="REDIS_TTL_SECONDS")
@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     worker_retry_attempts: int = Field(default=3, env="WORKER_RETRY_ATTEMPTS")
     worker_retry_delay_seconds: int = Field(default=5, env="WORKER_RETRY_DELAY_SECONDS")
 
+    # Google OAuth
+    google_client_id: str = Field(
+        default="",
+        env="GOOGLE_CLIENT_ID"
+    )
+
     # Security
     enable_https: bool = Field(default=False, env="ENABLE_HTTPS")
     cors_origins: str = Field(
@@ -91,7 +97,7 @@ class Settings(BaseSettings):
         return self.max_file_size_mb * 1024 * 1024
 
     class Config:
-        env_file = (".env", "../.env", "backend/.env")
+        env_file = (".env", "../.env")
         extra = "ignore"
         case_sensitive = False
 
