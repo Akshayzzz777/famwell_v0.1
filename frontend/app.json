@@ -39,6 +39,9 @@
       }
     },
     "scheme": "famwell-mobile",
-    "owner": "ayush_karn.01"
+    "owner": "ayush_karn.01",
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }
