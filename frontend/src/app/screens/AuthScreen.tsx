@@ -1,9 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import * as Crypto from 'expo-crypto';
 
 import { useApp } from '../state/AppContext';
 import { theme } from '../lib/theme';
 import { Button, Card, Field } from '../components/Primitives';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_WEB_CLIENT_ID = '412498275721-iiihb961adjl9h0vvaif3fngbenh6ua8.apps.googleusercontent.com';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -13,6 +20,7 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
   const {
     clearSessionError,
     selectedRole,
@@ -20,8 +28,52 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
     sessionError,
     setSelectedRole,
     signIn,
+    signInWithGoogle,
     signUp,
   } = useApp();
+
+  const handleGoogleSignIn = async () => {
+    clearSessionError();
+    setGoogleLoading(true);
+    try {
+      const redirectUri = Linking.createURL('auth');
+      const nonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        String(Date.now()),
+      );
+
+      const params = new URLSearchParams({
+        client_id: GOOGLE_WEB_CLIENT_ID,
+        redirect_uri: redirectUri,
+        response_type: 'id_token',
+        scope: 'openid email profile',
+        nonce,
+      });
+
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+
+      if (result.type === 'success' && result.url) {
+        // The id_token is in the URL fragment (#id_token=...)
+        const fragment = result.url.split('#')[1];
+        if (fragment) {
+          const resultParams = new URLSearchParams(fragment);
+          const idToken = resultParams.get('id_token');
+          if (idToken) {
+            const success = await signInWithGoogle(idToken);
+            if (success) {
+              onAuthenticated();
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const canSubmit = useMemo(() => {
     if (mode === 'signin') {
@@ -114,6 +166,30 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
             />
           </View>
         </Card>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <Pressable
+          onPress={handleGoogleSignIn}
+          disabled={googleLoading}
+          style={({ pressed }) => [
+            styles.googleButton,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          {googleLoading ? (
+            <ActivityIndicator size="small" color={theme.colors.text} />
+          ) : (
+            <>
+              <Text style={styles.googleIcon}>G</Text>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </>
+          )}
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -204,5 +280,39 @@ const styles = StyleSheet.create({
   errorText: {
     ...theme.typography.caption,
     color: theme.colors.danger,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
+  dividerText: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: 14,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  googleIcon: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  googleButtonText: {
+    ...theme.typography.label,
+    color: theme.colors.text,
   },
 });
