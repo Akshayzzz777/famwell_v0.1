@@ -18,6 +18,12 @@ services:
         generateValue: false
       - key: GOOGLE_CLIENT_ID
         generateValue: false
+      - key: GOOGLE_CLIENT_SECRET
+        generateValue: false
+      - key: GOOGLE_REDIRECT_URI
+        generateValue: false
+      - key: FRONTEND_URL
+        generateValue: false
       - key: AZURE_OPENAI_ENDPOINT
         generateValue: false
       - key: AZURE_OPENAI_API_KEY

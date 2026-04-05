@@ -160,7 +160,11 @@ async def upload_medical_record(
     file_content: bytes,
     record_type: str = "general",
 ) -> Dict[str, Any]:
-    """Upload a medical record PDF to local storage and store metadata in DB."""
+    """Upload a medical record PDF to local storage and store metadata in DB.
+
+    If the user has Google Drive connected, also uploads to their Drive folder
+    and stores the drive_file_id.
+    """
     from shared.gcs_client import get_gcs_client
 
     storage = get_gcs_client()
@@ -184,17 +188,30 @@ async def upload_medical_record(
     file_url = storage_path
     logger.info("File saved locally: record_id=%s, path=%s", record_id, storage_path)
 
+    # Attempt Google Drive upload (non-blocking — falls back gracefully)
+    drive_file_id: Optional[str] = None
+    try:
+        from shared.google_drive import upload_to_user_drive
+
+        drive_result = await upload_to_user_drive(prisma, user_id, file_content, file_name)
+        if drive_result:
+            drive_file_id = drive_result.get("id")
+            logger.info("Drive upload successful: record_id=%s, drive_file_id=%s", record_id, drive_file_id)
+    except Exception as drive_err:
+        logger.warning("Drive upload failed (non-fatal): record_id=%s, error=%s", record_id, drive_err)
+
     rows = await prisma.query_raw(
         (
-            "INSERT INTO medical_records (medical_record_id, user_id, file_url, file_name, record_type) "
-            "VALUES ($1, $2, $3, $4, $5) "
-            "RETURNING medical_record_id, user_id, file_url, file_name, record_type, upload_date"
+            "INSERT INTO medical_records (medical_record_id, user_id, file_url, file_name, record_type, drive_file_id) "
+            "VALUES ($1, $2, $3, $4, $5, $6) "
+            "RETURNING medical_record_id, user_id, file_url, file_name, record_type, upload_date, drive_file_id"
         ),
         record_id,
         user_id,
         file_url,
         file_name,
         record_type,
+        drive_file_id,
     )
     logger.info("Medical record DB insert successful: record_id=%s", record_id)
     return rows[0]
@@ -204,7 +221,7 @@ async def list_medical_records(prisma, user_id: str) -> List[Dict[str, Any]]:
     """List all medical records for a user."""
     rows = await prisma.query_raw(
         (
-            "SELECT medical_record_id, user_id, file_url, file_name, record_type, upload_date "
+            "SELECT medical_record_id, user_id, file_url, file_name, record_type, upload_date, drive_file_id "
             "FROM medical_records WHERE user_id = $1 ORDER BY upload_date DESC"
         ),
         user_id,
