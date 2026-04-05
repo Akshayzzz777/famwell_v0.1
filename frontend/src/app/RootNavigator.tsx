@@ -20,6 +20,8 @@ import { FamilyProfilesScreen } from './screens/FamilyProfilesScreen';
 import { FriendsAndFamilyScreen } from './screens/FriendsAndFamilyScreen';
 import { AIInsightsScreen } from './screens/AIInsightsScreen';
 import { StressAnalysisScreen } from './screens/StressAnalysisScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { NotificationScreen } from './screens/NotificationScreen';
 import type { AuthStackParamList, MainStackParamList, OnboardingStackParamList, SplashStackParamList } from './navigation';
 
 export const queryClient = new QueryClient({
@@ -82,6 +84,8 @@ function MainNavigator() {
       <MainStack.Screen component={FriendsAndFamilyScreen} name="FriendsAndFamily" />
       <MainStack.Screen component={AIInsightsScreen} name="AIInsights" />
       <MainStack.Screen component={StressAnalysisScreen} name="StressAnalysis" />
+      <MainStack.Screen component={ProfileScreen} name="Profile" />
+      <MainStack.Screen component={NotificationScreen} name="Notifications" />
     </MainStack.Navigator>
   );
 }

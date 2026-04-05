@@ -263,7 +263,7 @@ export function HomeDashboardScreen({ navigation }: HomeDashboardProps) {
               <Text style={styles.headerSubtitle}>Keep up your healthy habits!</Text>
             </View>
           </View>
-          <Pressable onPress={logout} style={styles.notificationButton}>
+          <Pressable onPress={() => navigation.navigate('Notifications')} style={styles.notificationButton}>
             <MaterialIcons color={theme.colors.textMuted} name="notifications-none" size={20} />
           </Pressable>
         </View>

@@ -358,7 +358,7 @@ export function PatientRecordsScreen({ navigation }: PatientRecordsProps) {
           </View>
           <Text style={styles.brandTitle}>FamWell</Text>
         </View>
-        <Pressable style={styles.iconButton}>
+        <Pressable onPress={() => navigation.navigate('Notifications')} style={styles.iconButton}>
           <MaterialIcons color={theme.colors.textMuted} name="notifications-none" size={20} />
         </Pressable>
       </View>
