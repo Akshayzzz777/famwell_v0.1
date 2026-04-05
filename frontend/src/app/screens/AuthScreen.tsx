@@ -1,12 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as Crypto from 'expo-crypto';
 
 import { useApp } from '../state/AppContext';
 import { theme } from '../lib/theme';
-import { Button, Card, Field } from '../components/Primitives';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -20,6 +30,7 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const {
     clearSessionError,
@@ -51,11 +62,9 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
       });
 
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
 
       if (result.type === 'success' && result.url) {
-        // The id_token is in the URL fragment (#id_token=...)
         const fragment = result.url.split('#')[1];
         if (fragment) {
           const resultParams = new URLSearchParams(fragment);
@@ -79,9 +88,8 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
     if (mode === 'signin') {
       return Boolean(selectedRole && email.trim() && password.trim());
     }
-
-    return Boolean(selectedRole && email.trim() && password.trim() && fullName.trim() && phoneNumber.trim());
-  }, [email, fullName, mode, password, phoneNumber, selectedRole]);
+    return Boolean(selectedRole && email.trim() && password.trim() && fullName.trim());
+  }, [email, fullName, mode, password, selectedRole]);
 
   const handleSubmit = async () => {
     const success =
@@ -97,99 +105,143 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.hero}>
-          <Text style={styles.title}>Health workflows with a lighter touch.</Text>
-          <Text style={styles.subtitle}>Sign in to manage records, upload prescriptions, review extracted summaries, and keep family care in sync.</Text>
+        {/* Logo */}
+        <View style={styles.logoRow}>
+          <MaterialIcons name="spa" size={28} color={theme.colors.primary} />
+          <Text style={styles.logoText}>FamWell</Text>
         </View>
 
-        <Card style={styles.authCard}>
-          <View style={styles.tabRow}>
-            {(['signin', 'signup'] as const).map((value) => {
-              const active = value === mode;
-              return (
-                <Pressable key={value} onPress={() => setMode(value)} style={[styles.tabButton, active && styles.tabButtonActive]}>
-                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{value === 'signin' ? 'Sign in' : 'Create account'}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+        {/* Title */}
+        <Text style={styles.title}>
+          {mode === 'signin' ? 'Welcome back' : 'Create Account'}
+        </Text>
 
-          <View style={styles.roleRow}>
-            {(['PATIENT', 'DOCTOR'] as const).map((role) => {
-              const active = selectedRole === role;
-              return (
-                <Pressable
-                  key={role}
-                  onPress={() => {
-                    clearSessionError();
-                    setSelectedRole(role);
-                  }}
-                  style={[styles.roleChip, active && styles.roleChipActive]}
-                >
-                  <Text style={[styles.roleChipLabel, active && styles.roleChipLabelActive]}>{role === 'PATIENT' ? 'Patient' : 'Doctor'}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+        {/* Role Toggle */}
+        <View style={styles.roleToggle}>
+          {(['PATIENT', 'DOCTOR'] as const).map((role) => {
+            const active = selectedRole === role;
+            return (
+              <Pressable
+                key={role}
+                onPress={() => {
+                  clearSessionError();
+                  setSelectedRole(role);
+                }}
+                style={[styles.roleTab, active && styles.roleTabActive]}
+              >
+                <Text style={[styles.roleTabText, active && styles.roleTabTextActive]}>
+                  {role === 'PATIENT' ? 'Patient' : 'Doctor'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-          <View style={styles.form}>
-            {mode === 'signup' ? (
-              <>
-                <Field label="Full name" onChangeText={setFullName} placeholder="Aisha Patel" value={fullName} />
-                <Field
-                  keyboardType="phone-pad"
-                  label="Phone number"
-                  onChangeText={setPhoneNumber}
-                  placeholder="+1 555 010 1100"
-                  value={phoneNumber}
-                />
-              </>
-            ) : null}
+        {/* Form */}
+        <View style={styles.form}>
+          {mode === 'signup' && (
+            <View style={styles.inputWrap}>
+              <MaterialIcons name="person" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Full Name"
+                placeholderTextColor={theme.colors.textSoft}
+                value={fullName}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+              />
+            </View>
+          )}
 
-            <Field
-              autoCapitalize="none"
-              keyboardType="email-address"
-              label="Email"
-              onChangeText={setEmail}
-              placeholder="name@example.com"
+          <View style={styles.inputWrap}>
+            <MaterialIcons name="mail-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email Address"
+              placeholderTextColor={theme.colors.textSoft}
               value={email}
-            />
-            <Field label="Password" onChangeText={setPassword} placeholder="Minimum 8 characters" secureTextEntry value={password} />
-
-            {sessionError ? <Text style={styles.errorText}>{sessionError}</Text> : null}
-
-            <Button
-              disabled={!canSubmit}
-              label={mode === 'signin' ? 'Enter workspace' : 'Create workspace'}
-              loading={sessionBusy}
-              onPress={handleSubmit}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
           </View>
-        </Card>
 
+          <View style={styles.inputWrap}>
+            <MaterialIcons name="lock-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Password"
+              placeholderTextColor={theme.colors.textSoft}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.visibilityBtn}>
+              <MaterialIcons
+                name={showPassword ? 'visibility' : 'visibility-off'}
+                size={20}
+                color={theme.colors.textMuted}
+              />
+            </Pressable>
+          </View>
+
+          {mode === 'signin' && (
+            <Pressable style={styles.forgotRow}>
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </Pressable>
+          )}
+
+          {sessionError ? <Text style={styles.errorText}>{sessionError}</Text> : null}
+
+          <Pressable
+            onPress={handleSubmit}
+            disabled={!canSubmit || sessionBusy}
+            style={[styles.submitBtn, (!canSubmit || sessionBusy) && styles.submitBtnDisabled]}
+          >
+            {sessionBusy ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.submitBtnText}>
+                {mode === 'signin' ? 'Sign In' : 'Create Account'}
+              </Text>
+            )}
+          </Pressable>
+        </View>
+
+        {/* Divider */}
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
+          <Text style={styles.dividerText}>{mode === 'signin' ? 'Or sign in with' : 'Or sign up with'}</Text>
           <View style={styles.dividerLine} />
         </View>
 
+        {/* Google */}
         <Pressable
           onPress={handleGoogleSignIn}
           disabled={googleLoading}
-          style={({ pressed }) => [
-            styles.googleButton,
-            pressed && { opacity: 0.8 },
-          ]}
+          style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.8 }]}
         >
           {googleLoading ? (
             <ActivityIndicator size="small" color={theme.colors.text} />
           ) : (
             <>
               <Text style={styles.googleIcon}>G</Text>
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
+              <Text style={styles.googleBtnText}>Google</Text>
             </>
           )}
         </Pressable>
+
+        {/* Toggle mode */}
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleText}>
+            {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+          </Text>
+          <Pressable onPress={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); clearSessionError(); }}>
+            <Text style={styles.toggleLink}>
+              {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -203,88 +255,110 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xxl,
-    gap: theme.spacing.xl,
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+    gap: 20,
   },
-  hero: {
-    gap: theme.spacing.sm,
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'center',
+    marginBottom: 4,
   },
-  eyebrow: {
-    ...theme.typography.caption,
+  logoText: {
+    fontSize: 22,
+    fontWeight: '700',
     color: theme.colors.primary,
-    textTransform: 'uppercase',
   },
   title: {
-    ...theme.typography.display,
+    fontSize: 28,
+    fontWeight: '700',
     color: theme.colors.text,
+    textAlign: 'center',
   },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    maxWidth: 520,
-  },
-  authCard: {
-    gap: theme.spacing.lg,
-  },
-  tabRow: {
+  roleToggle: {
     flexDirection: 'row',
     backgroundColor: theme.colors.surfaceAccent,
-    borderRadius: theme.radius.pill,
+    borderRadius: 999,
     padding: 4,
   },
-  tabButton: {
+  roleTab: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: theme.radius.pill,
+    paddingVertical: 10,
+    borderRadius: 999,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  tabButtonActive: {
-    backgroundColor: theme.colors.surface,
+  roleTabActive: {
+    backgroundColor: theme.colors.primary,
   },
-  tabLabel: {
-    ...theme.typography.label,
+  roleTabText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: theme.colors.textMuted,
   },
-  tabLabelActive: {
-    color: theme.colors.text,
-  },
-  roleRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  roleChip: {
-    flex: 1,
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceMuted,
-  },
-  roleChipActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primarySoft,
-  },
-  roleChipLabel: {
-    ...theme.typography.label,
-    color: theme.colors.textMuted,
-  },
-  roleChipLabelActive: {
-    color: theme.colors.primaryDark,
+  roleTabTextActive: {
+    color: '#fff',
   },
   form: {
-    gap: theme.spacing.md,
+    gap: 14,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 14,
+    height: 52,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.colors.text,
+    height: '100%',
+  },
+  visibilityBtn: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  forgotRow: {
+    alignSelf: 'flex-end',
+  },
+  forgotText: {
+    fontSize: 13,
+    color: theme.colors.primary,
+    fontWeight: '500',
   },
   errorText: {
-    ...theme.typography.caption,
+    fontSize: 13,
     color: theme.colors.danger,
+    textAlign: 'center',
+  },
+  submitBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 999,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  submitBtnDisabled: {
+    opacity: 0.5,
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: 10,
   },
   dividerLine: {
     flex: 1,
@@ -292,16 +366,16 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.border,
   },
   dividerText: {
-    ...theme.typography.caption,
+    fontSize: 13,
     color: theme.colors.textMuted,
   },
-  googleButton: {
+  googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.sm,
+    gap: 10,
     paddingVertical: 14,
-    borderRadius: theme.radius.pill,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
@@ -311,8 +385,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.primary,
   },
-  googleButtonText: {
-    ...theme.typography.label,
+  googleBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: theme.colors.text,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toggleText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+  },
+  toggleLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primary,
   },
 });
