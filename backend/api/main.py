@@ -19,6 +19,7 @@ from api.auth import get_optional_current_user
 from api.middleware import RequestContextMiddleware, ErrorHandlingMiddleware
 from api.routes import router as api_router
 from api.feature_routes import router as feature_router
+from api.google_auth_routes import router as google_auth_router
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
     app.include_router(feature_router)
+    app.include_router(google_auth_router)
 
     @app.get("/health")
     async def health_check(request: Request, current_user: dict | None = Depends(get_optional_current_user)):
