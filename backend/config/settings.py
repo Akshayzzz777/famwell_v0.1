@@ -70,6 +70,15 @@ class Settings(BaseSettings):
         default="",
         env="GOOGLE_CLIENT_ID"
     )
+    google_client_secret: str = Field(default="", env="GOOGLE_CLIENT_SECRET")
+    google_redirect_uri: str = Field(
+        default="https://famwell-v0-1.onrender.com/auth/google/callback",
+        env="GOOGLE_REDIRECT_URI",
+    )
+    frontend_url: str = Field(
+        default="https://famwell-v0-1.onrender.com",
+        env="FRONTEND_URL",
+    )
 
     # Security
     enable_https: bool = Field(default=False, env="ENABLE_HTTPS")
