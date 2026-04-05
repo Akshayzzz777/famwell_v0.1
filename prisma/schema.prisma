@@ -8,22 +8,25 @@ datasource db {
 }
 
 model User {
-  user_id             String             @id @default(cuid()) @db.VarChar(36)
-  email               String             @unique @db.VarChar(255)
-  password            String             @db.VarChar(255)
-  created_at          DateTime           @default(now())
-  is_active           Boolean            @default(true)
-  role                String             @default("USER") @db.VarChar(20)
-  full_name           String?
-  phone_number        String?
-  health_id           String?            @unique @db.VarChar(32)
-  chatConversations   ChatConversation[]
-  outgoingConnections Connection[]       @relation("ConnectionFollower")
-  incomingConnections Connection[]       @relation("ConnectionFollowing")
-  files               File[]
-  jobs                Job[]
-  medicalRecords      MedicalRecord[]
-  records             Record[]
+  user_id                String             @id @default(cuid()) @db.VarChar(36)
+  email                  String             @unique @db.VarChar(255)
+  password               String             @db.VarChar(255)
+  created_at             DateTime           @default(now())
+  is_active              Boolean            @default(true)
+  role                   String             @default("USER") @db.VarChar(20)
+  full_name              String?
+  phone_number           String?
+  health_id              String?            @unique @db.VarChar(32)
+  google_access_token    String?
+  google_refresh_token   String?
+  google_drive_folder_id String?            @db.VarChar(128)
+  chatConversations      ChatConversation[]
+  outgoingConnections    Connection[]       @relation("ConnectionFollower")
+  incomingConnections    Connection[]       @relation("ConnectionFollowing")
+  files                  File[]
+  jobs                   Job[]
+  medicalRecords         MedicalRecord[]
+  records                Record[]
 
   @@index([email])
   @@map("users")
@@ -159,6 +162,7 @@ model MedicalRecord {
   upload_date       DateTime  @default(now())
   analysis_json     Json?
   analyzed_at       DateTime?
+  drive_file_id     String?   @db.VarChar(256)
   user              User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 
   @@index([user_id])

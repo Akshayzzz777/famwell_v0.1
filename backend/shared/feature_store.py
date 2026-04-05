@@ -115,6 +115,12 @@ async def ensure_supporting_schema(prisma: Prisma) -> None:
             ")"
         ),
         "CREATE INDEX IF NOT EXISTS chat_messages_conversation_id_idx ON chat_messages (conversation_id)",
+        # Google Drive integration columns on users
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_access_token TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_refresh_token TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_drive_folder_id VARCHAR(128)",
+        # Drive file ID on medical records
+        "ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS drive_file_id VARCHAR(256)",
     ]
 
     for statement in statements:
