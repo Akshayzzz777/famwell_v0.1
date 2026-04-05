@@ -35,6 +35,8 @@ export type MainStackParamList = {
     highlightDescription?: string;
     highlightTag?: string;
   } | undefined;
+  Profile: undefined;
+  Notifications: undefined;
 };
 
 export type MainRouteName = keyof MainStackParamList;
@@ -51,6 +53,8 @@ export type FamilyProfilesProps = NativeStackScreenProps<MainStackParamList, 'Fa
 export type FriendsAndFamilyProps = NativeStackScreenProps<MainStackParamList, 'FriendsAndFamily'>;
 export type AIInsightsProps = NativeStackScreenProps<MainStackParamList, 'AIInsights'>;
 export type StressAnalysisProps = NativeStackScreenProps<MainStackParamList, 'StressAnalysis'>;
+export type ProfileProps = NativeStackScreenProps<MainStackParamList, 'Profile'>;
+export type NotificationsProps = NativeStackScreenProps<MainStackParamList, 'Notifications'>;
 
 export const mainNavItems: Array<{
   label: string;
@@ -62,5 +66,5 @@ export const mainNavItems: Array<{
   { label: 'Records', route: 'PatientRecords', iconFamily: 'MaterialCommunityIcons', iconName: 'file-document-outline' },
   { label: 'AI Insights', route: 'AIInsights', iconFamily: 'MaterialIcons', iconName: 'auto-awesome' },
   { label: 'Doctors', route: 'FindDoctor', iconFamily: 'MaterialCommunityIcons', iconName: 'stethoscope' },
-  { label: 'Profile', route: 'FamilyProfiles', iconFamily: 'MaterialIcons', iconName: 'account-circle' },
+  { label: 'Profile', route: 'Profile', iconFamily: 'MaterialIcons', iconName: 'account-circle' },
 ];
