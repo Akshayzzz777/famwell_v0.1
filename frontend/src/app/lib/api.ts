@@ -163,8 +163,8 @@ const memoryStorage = new Map<string, string>();
 const TOKEN_KEY = 'famwell_access_token';
 const ROLE_KEY = 'famwell_selected_role';
 const USER_KEY = 'famwell_session_user';
-const PRODUCTION_API_URL = 'https://famwell-v0-1.onrender.com';
-const PROJECT_DEFAULT_API_URLS = [PRODUCTION_API_URL, 'http://10.15.54.74:8000'];
+const PRODUCTION_API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'https://famwell-v0-1.onrender.com';
+const PROJECT_DEFAULT_API_URLS = (Constants.expoConfig?.extra?.apiUrls as string[] | undefined) ?? [PRODUCTION_API_URL];
 
 let unauthorizedHandler: ((failure: ApiFailure) => void) | null = null;
 

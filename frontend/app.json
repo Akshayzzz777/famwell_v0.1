@@ -29,6 +29,7 @@
       "bundler": "metro"
     },
     "extra": {
+      "googleWebClientId": "412498275721-g00rftt1jbvc3555cii3uss72g0qp5g3.apps.googleusercontent.com",
       "apiUrl": "https://famwell-v0-1.onrender.com",
       "apiUrls": [
         "https://famwell-v0-1.onrender.com",

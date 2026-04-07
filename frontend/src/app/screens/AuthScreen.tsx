@@ -14,13 +14,16 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as Crypto from 'expo-crypto';
+import Constants from 'expo-constants';
 
 import { useApp } from '../state/AppContext';
 import { theme } from '../lib/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_WEB_CLIENT_ID = '412498275721-iiihb961adjl9h0vvaif3fngbenh6ua8.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID =
+  (Constants.expoConfig as { extra?: { googleWebClientId?: string } } | null)
+    ?.extra?.googleWebClientId ?? '';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -88,8 +91,8 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
     if (mode === 'signin') {
       return Boolean(selectedRole && email.trim() && password.trim());
     }
-    return Boolean(selectedRole && email.trim() && password.trim() && fullName.trim());
-  }, [email, fullName, mode, password, selectedRole]);
+    return Boolean(selectedRole && email.trim() && password.trim() && fullName.trim() && phoneNumber.trim().length >= 7);
+  }, [email, fullName, mode, password, phoneNumber, selectedRole]);
 
   const handleSubmit = async () => {
     const success =
@@ -140,17 +143,30 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
         {/* Form */}
         <View style={styles.form}>
           {mode === 'signup' && (
-            <View style={styles.inputWrap}>
-              <MaterialIcons name="person" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor={theme.colors.textSoft}
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-            </View>
+            <>
+              <View style={styles.inputWrap}>
+                <MaterialIcons name="person" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Full Name"
+                  placeholderTextColor={theme.colors.textSoft}
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                />
+              </View>
+              <View style={styles.inputWrap}>
+                <MaterialIcons name="phone" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone Number"
+                  placeholderTextColor={theme.colors.textSoft}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </>
           )}
 
           <View style={styles.inputWrap}>

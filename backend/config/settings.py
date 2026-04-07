@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     database_pool_timeout: int = Field(default=30, env="DATABASE_POOL_TIMEOUT")
 
     # Redis (Upstash)
-    redis_url: str = Field(default="rediss://default:gQAAAAAAAQX5AAIncDEwNTgwNGM5YmUwNTY0MmI4YTU1ZDAxMjkwOTQ5NGI0ZHAxNjcwNjU@noble-hermit-67065.upstash.io:6379", env="REDIS_URL")
+    redis_url: str = Field(default="", env="REDIS_URL")
     redis_queue_name: str = Field(default="document_processing_jobs", env="REDIS_QUEUE_NAME")
     redis_dlq_name: str = Field(default="document_processing_dlq", env="REDIS_DLQ_NAME")
     redis_ttl_seconds: int = Field(default=86400, env="REDIS_TTL_SECONDS")

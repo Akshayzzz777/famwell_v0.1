@@ -208,7 +208,7 @@ famwell_v0.1/
 | `rate:user_upload:{user_id}` | STRING | window | Upload rate limit counter |
 | `rate:ip_request:{ip}` | STRING | window | IP request rate limit counter |
 
-**Connection**: `rediss://default:<token>@noble-hermit-67065.upstash.io:6379` (TLS)
+**Connection**: `rediss://default:<token>@<host>.upstash.io:6379` (TLS, set via `REDIS_URL` env var)
 
 ---
 
@@ -219,13 +219,13 @@ All in root `.env` (read by backend settings, `prisma/.env` has `DATABASE_URL` o
 ```
 DATABASE_URL          Neon PostgreSQL connection string
 REDIS_URL             Upstash Redis rediss:// URL
-UPSTASH_REDIS_REST_URL  https://noble-hermit-67065.upstash.io
-UPSTASH_REDIS_REST_TOKEN  <token>
+UPSTASH_REDIS_REST_URL  (set in Render env vars)
+UPSTASH_REDIS_REST_TOKEN  (set in Render env vars)
 AZURE_OPENAI_ENDPOINT
 AZURE_OPENAI_API_KEY
 AZURE_OPENAI_DEPLOYMENT   soundverse-saar-gpt-4.1
 AZURE_OPENAI_API_VERSION  2025-01-01-preview
-GOOGLE_CLIENT_ID      412498275721-iiihb961adjl9h0vvaif3fngbenh6ua8.apps.googleusercontent.com
+GOOGLE_CLIENT_ID      (set in Render env vars and app.json extra)
 JWT_SECRET_KEY
 ```
 
