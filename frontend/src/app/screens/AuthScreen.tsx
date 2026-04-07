@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,17 +13,12 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import * as Crypto from 'expo-crypto';
-import Constants from 'expo-constants';
 
 import { useApp } from '../state/AppContext';
 import { theme } from '../lib/theme';
+import { API_BASE_URL } from '../lib/api';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_WEB_CLIENT_ID =
-  (Constants.expoConfig as { extra?: { googleWebClientId?: string } } | null)
-    ?.extra?.googleWebClientId ?? '';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -37,12 +32,12 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
   const [googleLoading, setGoogleLoading] = useState(false);
   const {
     clearSessionError,
+    handleGoogleCallback,
     selectedRole,
     sessionBusy,
     sessionError,
     setSelectedRole,
     signIn,
-    signInWithGoogle,
     signUp,
   } = useApp();
 
@@ -50,33 +45,26 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
     clearSessionError();
     setGoogleLoading(true);
     try {
-      const redirectUri = Linking.createURL('auth');
-      const nonce = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        String(Date.now()),
-      );
+      const role = selectedRole ?? 'PATIENT';
+      const redirectUri = Linking.createURL('auth/google');
+      const loginUrl = `${API_BASE_URL}/auth/google/login?role=${role}&platform=mobile`;
 
-      const params = new URLSearchParams({
-        client_id: GOOGLE_WEB_CLIENT_ID,
-        redirect_uri: redirectUri,
-        response_type: 'id_token',
-        scope: 'openid email profile',
-        nonce,
-      });
-
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUri);
 
       if (result.type === 'success' && result.url) {
-        const fragment = result.url.split('#')[1];
-        if (fragment) {
-          const resultParams = new URLSearchParams(fragment);
-          const idToken = resultParams.get('id_token');
-          if (idToken) {
-            const success = await signInWithGoogle(idToken);
+        const url = new URL(result.url);
+        const token = url.searchParams.get('token');
+        const userParam = url.searchParams.get('user');
+
+        if (token && userParam) {
+          try {
+            const userData = JSON.parse(decodeURIComponent(userParam));
+            const success = await handleGoogleCallback(token, userData, role);
             if (success) {
               onAuthenticated();
             }
+          } catch {
+            console.error('Failed to parse Google auth response');
           }
         }
       }

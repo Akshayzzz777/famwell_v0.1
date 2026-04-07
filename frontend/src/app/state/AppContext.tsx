@@ -43,6 +43,7 @@ type AppContextValue = {
   setSelectedRole: (role: UiRole) => void;
   signIn: (input: { email: string; password: string }) => Promise<boolean>;
   signInWithGoogle: (idToken: string) => Promise<boolean>;
+  handleGoogleCallback: (token: string, user: any, role: UiRole) => Promise<boolean>;
   signUp: (input: { fullName: string; email: string; phoneNumber: string; password: string }) => Promise<boolean>;
 };
 
@@ -210,6 +211,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [selectedRole]
   );
 
+  const handleGoogleCallback = useCallback(
+    async (token: string, userData: any, role: UiRole) => {
+      try {
+        setSessionBusy(true);
+        setSessionError(null);
+
+        const mappedRole = role ?? 'PATIENT';
+        const user: SessionUser = {
+          userId: userData.user_id,
+          email: userData.email ?? '',
+          role: userData.role === 'USER' ? 'USER' : userData.role,
+          fullName: userData.full_name ?? null,
+          phoneNumber: userData.phone_number ?? null,
+          healthId: userData.health_id ?? null,
+          createdAt: userData.created_at ?? null,
+          isActive: true,
+        };
+
+        persistSelectedRole(mappedRole);
+        persistAccessToken(token);
+        persistSessionUser(user);
+        setSelectedRoleState(mappedRole);
+        setCurrentUser(user);
+        setHasStoredToken(true);
+        setSessionError(null);
+        queryClient.clear();
+        return true;
+      } catch (error) {
+        setSessionError((error as ApiFailure)?.message || 'Google sign-in failed.');
+        return false;
+      } finally {
+        setSessionBusy(false);
+      }
+    },
+    []
+  );
+
     const value = useMemo<AppContextValue>(
     () => ({
       activeJob,
@@ -230,6 +268,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSelectedRole,
       signIn,
       signInWithGoogle,
+      handleGoogleCallback,
       signUp,
     }),
     [
@@ -248,6 +287,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setHealthScoreState,
       signIn,
       signInWithGoogle,
+      handleGoogleCallback,
       signUp,
     ]
   );

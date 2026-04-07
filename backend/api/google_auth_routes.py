@@ -1,8 +1,9 @@
 """Google OAuth redirect flow and Google Drive connection routes."""
 
+import json
 import logging
 from typing import Any, Dict
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -39,10 +40,15 @@ def _error(message: str, status_code: int) -> JSONResponse:
 
 
 @router.get("/login")
-async def google_login_redirect():
+async def google_login_redirect(
+    role: str = Query(default="PATIENT"),
+    platform: str = Query(default="mobile"),
+):
     """Redirect the user to Google's OAuth consent screen for login."""
     if not settings.google_client_id:
         raise HTTPException(status_code=500, detail="Google client ID not configured")
+
+    state_data = json.dumps({"action": "login", "role": role, "platform": platform})
 
     params = urlencode({
         "client_id": settings.google_client_id,
@@ -51,13 +57,13 @@ async def google_login_redirect():
         "scope": LOGIN_SCOPES,
         "access_type": "offline",
         "prompt": "consent",
-        "state": "login",
+        "state": state_data,
     })
     return RedirectResponse(f"{GOOGLE_AUTH_URL}?{params}")
 
 
 @router.get("/callback")
-async def google_callback(code: str = Query(...), state: str = Query(default="login")):
+async def google_callback(code: str = Query(...), state: str = Query(default='{"action":"login"}')):
     """Handle the OAuth callback from Google.
 
     Exchanges the authorization code for tokens, retrieves the user profile,
@@ -65,6 +71,15 @@ async def google_callback(code: str = Query(...), state: str = Query(default="lo
     """
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
+
+    # Parse state
+    try:
+        state_data = json.loads(state)
+    except (json.JSONDecodeError, TypeError):
+        state_data = {"action": "login", "role": "PATIENT", "platform": "web"}
+
+    role = state_data.get("role", "PATIENT")
+    platform = state_data.get("platform", "web")
 
     # Exchange code for tokens
     async with httpx.AsyncClient(timeout=15) as client:
@@ -117,12 +132,13 @@ async def google_callback(code: str = Query(...), state: str = Query(default="lo
             if not user.get("is_active", True):
                 return _error("User account is inactive", status.HTTP_403_FORBIDDEN)
         else:
-            # New user from Google — default to PATIENT role
+            # New user from Google — use role from state
+            mapped_role = "DOCTOR" if role == "DOCTOR" else "USER"
             user = await create_user(
                 prisma,
                 email=email,
                 password_hash=hash_password(google_sub),
-                role="USER",
+                role=mapped_role,
                 full_name=full_name,
                 phone_number="",
             )
@@ -148,8 +164,17 @@ async def google_callback(code: str = Query(...), state: str = Query(default="lo
 
         jwt_token = create_jwt_token(user_id=user_id, role=user.get("role", "USER"))
 
-        # Redirect to frontend with the token
-        redirect_url = f"{settings.frontend_url}/auth/success?token={jwt_token}"
+        # Redirect: mobile app gets deep link, web gets frontend URL
+        if platform == "mobile":
+            user_json = quote(json.dumps({
+                "user_id": user["user_id"],
+                "email": user.get("email", ""),
+                "role": user.get("role", "USER"),
+                "full_name": user.get("full_name", ""),
+            }))
+            redirect_url = f"famwell-mobile://auth/google?token={jwt_token}&user={user_json}"
+        else:
+            redirect_url = f"{settings.frontend_url}/auth/success?token={jwt_token}"
         return RedirectResponse(redirect_url)
 
     except Exception as error:
