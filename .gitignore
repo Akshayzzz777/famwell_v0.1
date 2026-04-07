@@ -116,3 +116,4 @@ web-build/
 
 .uploads/
 backup.dump
+backup_neon_*.sql

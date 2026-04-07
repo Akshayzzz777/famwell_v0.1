@@ -37,6 +37,12 @@ export type MainStackParamList = {
   } | undefined;
   Profile: undefined;
   Notifications: undefined;
+  // Doctor screens
+  DoctorDashboard: undefined;
+  DoctorPatients: undefined;
+  DoctorPrescriptions: undefined;
+  DoctorProfile: undefined;
+  DoctorPatientRecords: { patientId: string; patientName?: string; patientHealthId?: string };
 };
 
 export type MainRouteName = keyof MainStackParamList;
@@ -55,6 +61,11 @@ export type AIInsightsProps = NativeStackScreenProps<MainStackParamList, 'AIInsi
 export type StressAnalysisProps = NativeStackScreenProps<MainStackParamList, 'StressAnalysis'>;
 export type ProfileProps = NativeStackScreenProps<MainStackParamList, 'Profile'>;
 export type NotificationsProps = NativeStackScreenProps<MainStackParamList, 'Notifications'>;
+export type DoctorDashboardProps = NativeStackScreenProps<MainStackParamList, 'DoctorDashboard'>;
+export type DoctorPatientsProps = NativeStackScreenProps<MainStackParamList, 'DoctorPatients'>;
+export type DoctorPrescriptionsProps = NativeStackScreenProps<MainStackParamList, 'DoctorPrescriptions'>;
+export type DoctorProfileProps = NativeStackScreenProps<MainStackParamList, 'DoctorProfile'>;
+export type DoctorPatientRecordsProps = NativeStackScreenProps<MainStackParamList, 'DoctorPatientRecords'>;
 
 export const mainNavItems: Array<{
   label: string;
@@ -67,4 +78,16 @@ export const mainNavItems: Array<{
   { label: 'AI Insights', route: 'AIInsights', iconFamily: 'MaterialIcons', iconName: 'auto-awesome' },
   { label: 'Doctors', route: 'FindDoctor', iconFamily: 'MaterialCommunityIcons', iconName: 'stethoscope' },
   { label: 'Profile', route: 'Profile', iconFamily: 'MaterialIcons', iconName: 'account-circle' },
+];
+
+export const doctorNavItems: Array<{
+  label: string;
+  route: MainRouteName;
+  iconFamily: 'MaterialIcons' | 'MaterialCommunityIcons';
+  iconName: string;
+}> = [
+  { label: 'Home', route: 'DoctorDashboard', iconFamily: 'MaterialIcons', iconName: 'home-filled' },
+  { label: 'Patients', route: 'DoctorPatients', iconFamily: 'MaterialIcons', iconName: 'people' },
+  { label: 'Prescriptions', route: 'DoctorPrescriptions', iconFamily: 'MaterialCommunityIcons', iconName: 'pill' },
+  { label: 'Profile', route: 'DoctorProfile', iconFamily: 'MaterialIcons', iconName: 'account-circle' },
 ];

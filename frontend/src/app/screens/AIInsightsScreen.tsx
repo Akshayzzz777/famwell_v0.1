@@ -324,7 +324,7 @@ export function AIInsightsScreen({ navigation }: AIInsightsProps) {
         ) : null}
       </ScrollView>
 
-      <BottomNav activeRoute="AIInsights" insetsBottom={insets.bottom} onNavigate={(route) => navigation.navigate(route)} />
+      <BottomNav activeRoute="AIInsights" insetsBottom={insets.bottom} onNavigate={(route) => navigation.navigate(route as any)} />
     </View>
   );
 }

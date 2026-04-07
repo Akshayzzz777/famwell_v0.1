@@ -22,6 +22,11 @@ import { AIInsightsScreen } from './screens/AIInsightsScreen';
 import { StressAnalysisScreen } from './screens/StressAnalysisScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { NotificationScreen } from './screens/NotificationScreen';
+import { DoctorDashboardScreen } from './screens/DoctorDashboardScreen';
+import { DoctorPatientsScreen } from './screens/DoctorPatientsScreen';
+import { DoctorPrescriptionsScreen } from './screens/DoctorPrescriptionsScreen';
+import { DoctorProfileScreen } from './screens/DoctorProfileScreen';
+import { DoctorPatientRecordsScreen } from './screens/DoctorPatientRecordsScreen';
 import type { AuthStackParamList, MainStackParamList, OnboardingStackParamList, SplashStackParamList } from './navigation';
 
 export const queryClient = new QueryClient({
@@ -70,8 +75,10 @@ function AuthNavigator({ onAuthenticated }: { onAuthenticated: () => void }) {
 }
 
 function MainNavigator() {
+  const { currentUser } = useApp();
+  const isDoctor = currentUser?.role === 'DOCTOR';
   return (
-    <MainStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="HomeDashboard">
+    <MainStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={isDoctor ? 'DoctorDashboard' : 'HomeDashboard'}>
       <MainStack.Screen component={HomeDashboardScreen} name="HomeDashboard" />
       <MainStack.Screen component={FindDoctorScreen} name="FindDoctor" />
       <MainStack.Screen component={UploadDocumentsScreen} name="UploadDocuments" />
@@ -86,6 +93,11 @@ function MainNavigator() {
       <MainStack.Screen component={StressAnalysisScreen} name="StressAnalysis" />
       <MainStack.Screen component={ProfileScreen} name="Profile" />
       <MainStack.Screen component={NotificationScreen} name="Notifications" />
+      <MainStack.Screen component={DoctorDashboardScreen} name="DoctorDashboard" />
+      <MainStack.Screen component={DoctorPatientsScreen} name="DoctorPatients" />
+      <MainStack.Screen component={DoctorPrescriptionsScreen} name="DoctorPrescriptions" />
+      <MainStack.Screen component={DoctorProfileScreen} name="DoctorProfile" />
+      <MainStack.Screen component={DoctorPatientRecordsScreen} name="DoctorPatientRecords" />
     </MainStack.Navigator>
   );
 }

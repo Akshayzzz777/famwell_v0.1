@@ -318,3 +318,43 @@ class MedicalRecordUploadResponse(BaseModel):
     file_name: str
     record_type: str
     upload_date: Optional[str] = None
+
+
+class AppointmentCreateRequest(BaseModel):
+    """Appointment creation request."""
+    patient_id: str = Field(..., min_length=1, max_length=36)
+    date: str = Field(..., min_length=1)
+    time: str = Field(..., min_length=1, max_length=10)
+    type: str = Field(default="In-Person", max_length=30)
+    notes: Optional[str] = None
+
+
+class AppointmentActionRequest(BaseModel):
+    """Appointment status update request."""
+    appointment_id: str = Field(..., min_length=1, max_length=64)
+    status: str = Field(..., pattern=r"^(accepted|rejected|completed|cancelled)$")
+
+
+class PrescriptionCreateRequest(BaseModel):
+    """Prescription creation request."""
+    patient_id: str = Field(..., min_length=1, max_length=36)
+    medication: str = Field(..., min_length=1, max_length=255)
+    dosage: str = Field(..., min_length=1, max_length=100)
+    duration: str = Field(..., min_length=1, max_length=100)
+    notes: Optional[str] = None
+
+
+class PrescriptionStatusRequest(BaseModel):
+    """Prescription status update request."""
+    prescription_id: str = Field(..., min_length=1, max_length=64)
+    status: str = Field(..., pattern=r"^(Active|Completed|Cancelled)$")
+
+
+class DoctorProfileUpdateRequest(BaseModel):
+    """Doctor profile update request."""
+    specialization: Optional[str] = Field(None, max_length=100)
+    experience: Optional[str] = Field(None, max_length=50)
+    hospital_affiliation: Optional[str] = Field(None, max_length=255)
+    education: Optional[str] = Field(None, max_length=512)
+    full_name: Optional[str] = Field(None, max_length=255)
+    phone_number: Optional[str] = Field(None, max_length=32)

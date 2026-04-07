@@ -11,8 +11,9 @@ import {
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { mainNavItems, type MainRouteName } from '../navigation';
+import { doctorNavItems, mainNavItems, type MainRouteName } from '../navigation';
 import { theme } from '../lib/theme';
+import { useApp } from '../state/AppContext';
 
 const NAV_HEIGHT = 78;
 
@@ -87,10 +88,14 @@ export function BottomNav({
   insetsBottom: number;
   onNavigate: (route: MainRouteName) => void;
 }) {
+  const { currentUser } = useApp();
+  const isDoctor = currentUser?.role === 'DOCTOR';
+  const navItems = isDoctor ? doctorNavItems : mainNavItems;
+
   return (
     <View style={[styles.navWrap, { paddingBottom: Math.max(insetsBottom, 10) }]}> 
       <View style={styles.navShell}>
-        {mainNavItems.map((item) => {
+        {navItems.map((item) => {
           const active = item.route === activeRoute;
           const color = active ? theme.colors.primary : '#98A2A0';
           const weight = active ? '700' : '500';

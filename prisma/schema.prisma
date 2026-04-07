@@ -20,6 +20,10 @@ model User {
   google_access_token    String?
   google_refresh_token   String?
   google_drive_folder_id String?            @db.VarChar(128)
+  specialization         String?            @db.VarChar(100)
+  experience             String?            @db.VarChar(50)
+  hospital_affiliation   String?            @db.VarChar(255)
+  education              String?            @db.VarChar(512)
   chatConversations      ChatConversation[]
   outgoingConnections    Connection[]       @relation("ConnectionFollower")
   incomingConnections    Connection[]       @relation("ConnectionFollowing")
@@ -27,6 +31,10 @@ model User {
   jobs                   Job[]
   medicalRecords         MedicalRecord[]
   records                Record[]
+  appointmentsAsPatient  Appointment[]      @relation("AppointmentPatient")
+  appointmentsAsDoctor   Appointment[]      @relation("AppointmentDoctor")
+  prescriptionsAsDoctor  Prescription[]     @relation("PrescriptionDoctor")
+  prescriptionsAsPatient Prescription[]     @relation("PrescriptionPatient")
 
   @@index([email])
   @@map("users")
@@ -207,4 +215,45 @@ model Doctor {
 
   @@index([specialization])
   @@map("doctors")
+}
+
+model Appointment {
+  appointment_id String   @id @db.VarChar(64)
+  patient_id     String   @db.VarChar(36)
+  doctor_id      String   @db.VarChar(36)
+  date           DateTime
+  time           String   @db.VarChar(10)
+  type           String   @default("In-Person") @db.VarChar(30)
+  status         String   @default("pending") @db.VarChar(20)
+  notes          String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @default(now()) @updatedAt
+  patient        User     @relation("AppointmentPatient", fields: [patient_id], references: [user_id], onDelete: Cascade)
+  doctor         User     @relation("AppointmentDoctor", fields: [doctor_id], references: [user_id], onDelete: Cascade)
+
+  @@index([patient_id])
+  @@index([doctor_id])
+  @@index([status])
+  @@index([date])
+  @@map("appointments")
+}
+
+model Prescription {
+  prescription_id String   @id @db.VarChar(64)
+  doctor_id       String   @db.VarChar(36)
+  patient_id      String   @db.VarChar(36)
+  medication      String   @db.VarChar(255)
+  dosage          String   @db.VarChar(100)
+  duration        String   @db.VarChar(100)
+  notes           String?
+  status          String   @default("Active") @db.VarChar(20)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
+  doctor          User     @relation("PrescriptionDoctor", fields: [doctor_id], references: [user_id], onDelete: Cascade)
+  patient         User     @relation("PrescriptionPatient", fields: [patient_id], references: [user_id], onDelete: Cascade)
+
+  @@index([doctor_id])
+  @@index([patient_id])
+  @@index([status])
+  @@map("prescriptions")
 }

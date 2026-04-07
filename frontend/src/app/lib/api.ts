@@ -899,3 +899,194 @@ export async function seedUsers(role: UiRole | null) {
   const response = await client.post('/api/users/seed');
   return unwrapSuccess<{ seeded: number; message: string }>('/api/users/seed', response.data);
 }
+
+// ── Doctor Dashboard & Profile ──
+
+export type DoctorAppointment = {
+  appointment_id: string;
+  date: string;
+  time: string;
+  type: string;
+  status: string;
+  notes: string | null;
+  patient_name: string | null;
+  patient_health_id: string | null;
+};
+
+export type DoctorPatient = {
+  connection_id: string;
+  user_id: string;
+  full_name: string | null;
+  health_id: string | null;
+  email: string;
+  phone_number: string | null;
+  connected_at?: string;
+  created_at?: string;
+};
+
+export type DoctorDashboardPayload = {
+  appointments: DoctorAppointment[];
+  patients: DoctorPatient[];
+  stats: {
+    total_patients: number;
+    completed_appointments: number;
+  };
+};
+
+export type DoctorProfilePayload = {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  health_id: string | null;
+  role: string;
+  phone_number: string | null;
+  specialization: string | null;
+  experience: string | null;
+  hospital_affiliation: string | null;
+  education: string | null;
+  created_at: string;
+  patient_count: number;
+  rating: number;
+};
+
+export type AppointmentItem = {
+  appointment_id: string;
+  date: string;
+  time: string;
+  type: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  other_name: string | null;
+  other_health_id: string | null;
+  other_user_id: string | null;
+};
+
+export type PrescriptionItem = {
+  prescription_id: string;
+  medication: string;
+  dosage: string;
+  duration: string;
+  notes: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  patient_name?: string | null;
+  patient_health_id?: string | null;
+  doctor_name?: string | null;
+  doctor_health_id?: string | null;
+};
+
+export async function fetchDoctorDashboard(role: UiRole | null) {
+  ensureAllowedRole(role, '/api/doctor/dashboard', ['DOCTOR']);
+  ensureToken('/api/doctor/dashboard');
+
+  const response = await client.get('/api/doctor/dashboard');
+  return unwrapSuccess<DoctorDashboardPayload>('/api/doctor/dashboard', response.data);
+}
+
+export async function fetchDoctorPatients(role: UiRole | null) {
+  ensureAllowedRole(role, '/api/doctor/patients', ['DOCTOR']);
+  ensureToken('/api/doctor/patients');
+
+  const response = await client.get('/api/doctor/patients');
+  return unwrapSuccess<{ patients: DoctorPatient[] }>('/api/doctor/patients', response.data);
+}
+
+export async function fetchDoctorProfile(role: UiRole | null) {
+  ensureAllowedRole(role, '/api/doctor/profile', ['DOCTOR']);
+  ensureToken('/api/doctor/profile');
+
+  const response = await client.get('/api/doctor/profile');
+  return unwrapSuccess<DoctorProfilePayload>('/api/doctor/profile', response.data);
+}
+
+export async function updateDoctorProfile(
+  role: UiRole | null,
+  updates: {
+    specialization?: string;
+    experience?: string;
+    hospital_affiliation?: string;
+    education?: string;
+    full_name?: string;
+    phone_number?: string;
+  }
+) {
+  ensureAllowedRole(role, '/api/doctor/profile', ['DOCTOR']);
+  ensureToken('/api/doctor/profile');
+
+  const response = await client.patch('/api/doctor/profile', updates);
+  return unwrapSuccess<Record<string, unknown>>('/api/doctor/profile', response.data);
+}
+
+export async function fetchAppointments(role: UiRole | null, statusFilter?: string) {
+  ensureRole(role, '/api/appointments');
+  ensureToken('/api/appointments');
+
+  const response = await client.get('/api/appointments', {
+    params: statusFilter ? { status: statusFilter } : undefined,
+  });
+  return unwrapSuccess<{ appointments: AppointmentItem[] }>('/api/appointments', response.data);
+}
+
+export async function createAppointment(
+  role: UiRole | null,
+  input: { patient_id: string; date: string; time: string; type?: string; notes?: string }
+) {
+  ensureRole(role, '/api/appointments');
+  ensureToken('/api/appointments');
+
+  const response = await client.post('/api/appointments', input);
+  return unwrapSuccess<AppointmentItem>('/api/appointments', response.data);
+}
+
+export async function updateAppointmentStatus(
+  role: UiRole | null,
+  appointmentId: string,
+  newStatus: string
+) {
+  ensureAllowedRole(role, `/api/appointments/${appointmentId}`, ['DOCTOR']);
+  ensureToken(`/api/appointments/${appointmentId}`);
+
+  const response = await client.patch(`/api/appointments/${appointmentId}`, {
+    appointment_id: appointmentId,
+    status: newStatus,
+  });
+  return unwrapSuccess<AppointmentItem>(`/api/appointments/${appointmentId}`, response.data);
+}
+
+export async function fetchPrescriptions(role: UiRole | null, statusFilter?: string) {
+  ensureRole(role, '/api/prescriptions');
+  ensureToken('/api/prescriptions');
+
+  const response = await client.get('/api/prescriptions', {
+    params: statusFilter ? { status: statusFilter } : undefined,
+  });
+  return unwrapSuccess<{ prescriptions: PrescriptionItem[] }>('/api/prescriptions', response.data);
+}
+
+export async function createPrescription(
+  role: UiRole | null,
+  input: { patient_id: string; medication: string; dosage: string; duration: string; notes?: string }
+) {
+  ensureAllowedRole(role, '/api/prescriptions', ['DOCTOR']);
+  ensureToken('/api/prescriptions');
+
+  const response = await client.post('/api/prescriptions', input);
+  return unwrapSuccess<PrescriptionItem>('/api/prescriptions', response.data);
+}
+
+export async function updatePrescriptionStatus(
+  role: UiRole | null,
+  prescriptionId: string,
+  newStatus: string
+) {
+  ensureAllowedRole(role, `/api/prescriptions/${prescriptionId}`, ['DOCTOR']);
+  ensureToken(`/api/prescriptions/${prescriptionId}`);
+
+  const response = await client.patch(`/api/prescriptions/${prescriptionId}`, {
+    prescription_id: prescriptionId,
+    status: newStatus,
+  });
+  return unwrapSuccess<PrescriptionItem>(`/api/prescriptions/${prescriptionId}`, response.data);
+}

@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Uplo
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from api.auth import require_patient, require_user
+from api.auth import require_doctor, require_patient, require_user
 from config.settings import settings
 from shared.database import get_prisma_client
 from shared.feature_store import (
@@ -17,23 +17,39 @@ from shared.feature_store import (
     NotFoundError,
     ValidationError,
     action_connection,
+    create_appointment,
     create_connection,
+    create_prescription,
     create_record,
     create_user,
+    ensure_doctor_schema,
     ensure_user_health_id,
     fetch_user_by_email,
     fetch_user_profile,
+    get_doctor_dashboard,
+    get_doctor_profile,
     get_insights_payload,
+    list_appointments,
     list_connections,
+    list_doctor_patients,
     list_pending_requests,
+    list_prescriptions,
     list_records,
+    update_appointment_status,
+    update_doctor_profile,
+    update_prescription_status,
 )
 from shared.schemas import (
+    AppointmentActionRequest,
+    AppointmentCreateRequest,
     ChatRequest,
+    DoctorProfileUpdateRequest,
     FollowActionRequest,
     FollowRequest,
     GoogleAuthRequest,
     LoginRequest,
+    PrescriptionCreateRequest,
+    PrescriptionStatusRequest,
     RecordCreateRequest,
     RegisterRequest,
     UiRoleSelection,
@@ -736,4 +752,245 @@ async def seed_users_endpoint(
         return _success({"seeded": count, "message": f"Inserted {count} users"})
     except Exception as error:
         logger.error(f"User seeding failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Doctor Dashboard & Profile ──
+
+
+@router.get("/doctor/dashboard")
+async def get_doctor_dashboard_endpoint(
+    current_user: Dict[str, Any] = Depends(require_doctor),
+) -> JSONResponse:
+    """Get the doctor dashboard with appointments, patients, and stats."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        data = await get_doctor_dashboard(prisma, current_user["user_id"])
+        return _success(data)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Doctor dashboard failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/doctor/patients")
+async def get_doctor_patients_endpoint(
+    current_user: Dict[str, Any] = Depends(require_doctor),
+) -> JSONResponse:
+    """List patients connected to the current doctor."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        data = await list_doctor_patients(prisma, current_user["user_id"])
+        return _success(data)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Doctor patients failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/doctor/profile")
+async def get_doctor_profile_endpoint(
+    current_user: Dict[str, Any] = Depends(require_doctor),
+) -> JSONResponse:
+    """Get the current doctor's profile with stats."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        profile = await get_doctor_profile(prisma, current_user["user_id"])
+        return _success(profile)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Doctor profile fetch failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.patch("/doctor/profile")
+async def update_doctor_profile_endpoint(
+    payload: DoctorProfileUpdateRequest,
+    current_user: Dict[str, Any] = Depends(require_doctor),
+) -> JSONResponse:
+    """Update the doctor profile fields."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        updated = await update_doctor_profile(
+            prisma,
+            current_user["user_id"],
+            specialization=payload.specialization,
+            experience=payload.experience,
+            hospital_affiliation=payload.hospital_affiliation,
+            education=payload.education,
+            full_name=payload.full_name,
+            phone_number=payload.phone_number,
+        )
+        return _success(updated)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Doctor profile update failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Appointment Endpoints ──
+
+
+@router.get("/appointments")
+async def get_appointments_endpoint(
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Get appointments for the current user (doctor or patient)."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        data = await list_appointments(
+            prisma,
+            current_user["user_id"],
+            current_user.get("role", "USER"),
+            status_filter,
+        )
+        return _success(data)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Appointments list failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/appointments")
+async def create_appointment_endpoint(
+    payload: AppointmentCreateRequest,
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Create a new appointment."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        role = current_user.get("role", "USER")
+        if role == "DOCTOR":
+            doctor_id = current_user["user_id"]
+            patient_id = payload.patient_id
+        else:
+            patient_id = current_user["user_id"]
+            doctor_id = payload.patient_id  # patient_id field reused as doctor target
+
+        appointment = await create_appointment(
+            prisma,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            date=payload.date,
+            time=payload.time,
+            appointment_type=payload.type,
+            notes=payload.notes,
+        )
+        return _success(appointment, status_code=status.HTTP_201_CREATED)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Appointment creation failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.patch("/appointments/{appointment_id}")
+async def update_appointment_endpoint(
+    appointment_id: str,
+    payload: AppointmentActionRequest,
+    current_user: Dict[str, Any] = Depends(require_doctor),
+) -> JSONResponse:
+    """Update appointment status (doctor only)."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        result = await update_appointment_status(
+            prisma,
+            appointment_id,
+            current_user["user_id"],
+            payload.status,
+        )
+        return _success(result)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Appointment update failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Prescription Endpoints ──
+
+
+@router.get("/prescriptions")
+async def get_prescriptions_endpoint(
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    current_user: Dict[str, Any] = Depends(require_user),
+) -> JSONResponse:
+    """Get prescriptions for the current user."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        data = await list_prescriptions(
+            prisma,
+            current_user["user_id"],
+            current_user.get("role", "USER"),
+            status_filter,
+        )
+        return _success(data)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Prescriptions list failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/prescriptions")
+async def create_prescription_endpoint(
+    payload: PrescriptionCreateRequest,
+    current_user: Dict[str, Any] = Depends(require_doctor),
+) -> JSONResponse:
+    """Create a new prescription (doctor only)."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        result = await create_prescription(
+            prisma,
+            doctor_id=current_user["user_id"],
+            patient_id=payload.patient_id,
+            medication=payload.medication,
+            dosage=payload.dosage,
+            duration=payload.duration,
+            notes=payload.notes,
+        )
+        return _success(result, status_code=status.HTTP_201_CREATED)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Prescription creation failed: {error}", exc_info=True)
+        return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.patch("/prescriptions/{prescription_id}")
+async def update_prescription_endpoint(
+    prescription_id: str,
+    payload: PrescriptionStatusRequest,
+    current_user: Dict[str, Any] = Depends(require_doctor),
+) -> JSONResponse:
+    """Update prescription status (doctor only)."""
+    prisma = get_prisma_client(settings.database_url)
+    try:
+        await ensure_doctor_schema(prisma)
+        result = await update_prescription_status(
+            prisma,
+            prescription_id,
+            current_user["user_id"],
+            payload.status,
+        )
+        return _success(result)
+    except FeatureStoreError as error:
+        return _feature_error_response(error)
+    except Exception as error:
+        logger.error(f"Prescription update failed: {error}", exc_info=True)
         return _error("Internal server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
