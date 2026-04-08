@@ -411,8 +411,10 @@ async def list_connections(prisma: Prisma, follower_id: str) -> Dict[str, Any]:
             "SELECT c.connection_id, c.follower_id, c.following_id, c.status, c.created_at, "
             "u.email, u.role, u.full_name, u.phone_number, u.health_id "
             "FROM connections c "
-            "JOIN users u ON u.user_id = c.following_id "
-            "WHERE c.follower_id = $1 "
+            "JOIN users u ON "
+            "  CASE WHEN c.follower_id = $1 THEN u.user_id = c.following_id "
+            "       ELSE u.user_id = c.follower_id END "
+            "WHERE (c.follower_id = $1 OR c.following_id = $1) "
             "ORDER BY c.created_at DESC"
         ),
         follower_id,
@@ -471,7 +473,7 @@ async def list_pending_requests(prisma: Prisma, user_id: str) -> Dict[str, Any]:
             }
         )
 
-    return {'requests': requests}
+    return {'connections': requests}
 
 
 def get_insights_payload() -> Dict[str, Any]:

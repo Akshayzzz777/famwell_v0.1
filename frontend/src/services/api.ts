@@ -57,7 +57,7 @@ export type ConnectionsPayload = {
 };
 
 export type PendingRequestsPayload = {
-  requests: ConnectionItem[];
+  connections: ConnectionItem[];
 };
 
 export type InsightsPayload = {
@@ -656,7 +656,7 @@ export async function createRecord(
 }
 
 export async function fetchConnections(role: UiRole | null) {
-  ensureAllowedRole(role, '/api/connections', ['PATIENT']);
+  ensureRole(role, '/api/connections');
   ensureToken('/api/connections');
 
   const response = await client.get('/api/connections');

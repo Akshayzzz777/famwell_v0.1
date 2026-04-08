@@ -588,7 +588,7 @@ export async function createRecord(
 }
 
 export async function fetchConnections(role: UiRole | null) {
-  ensureAllowedRole(role, '/api/connections', ['PATIENT']);
+  ensureRole(role, '/api/connections');
   ensureToken('/api/connections');
 
   const response = await client.get('/api/connections');
@@ -874,7 +874,7 @@ export async function searchUserByName(role: UiRole | null, query: string) {
 }
 
 export async function fetchPendingRequests(role: UiRole | null) {
-  ensureAllowedRole(role, '/api/connections/pending', ['PATIENT']);
+  ensureRole(role, '/api/connections/pending');
   ensureToken('/api/connections/pending');
 
   const response = await client.get('/api/connections/pending');
@@ -882,7 +882,7 @@ export async function fetchPendingRequests(role: UiRole | null) {
 }
 
 export async function actionConnection(role: UiRole | null, connectionId: string, action: 'accepted' | 'rejected') {
-  ensureAllowedRole(role, '/api/follow-action', ['PATIENT']);
+  ensureRole(role, '/api/follow-action');
   ensureToken('/api/follow-action');
 
   const response = await client.post('/api/follow-action', {

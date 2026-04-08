@@ -25,7 +25,7 @@ export function useConnections() {
     let mounted = true;
 
     const run = async () => {
-      if (selectedRole !== 'PATIENT') {
+      if (!selectedRole) {
         setConnections([]);
         setError(null);
         setLoading(false);
